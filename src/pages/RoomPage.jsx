@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-
+import "./RoomPage.css";
 function RoomPage() {
 
   const { roomCode } = useParams();
@@ -73,42 +73,67 @@ const sendMessage = async () => {
   fetchRoom();
   fetchMembers();
 }, []);
- return (
-  <div>
-    {room && (
-      <>
-        <h1>{room.roomName}</h1>
+return (
+  <div className="room-container">
 
-        <p>Room Code: {room.roomCode}</p>
+    <div className="room-header">
 
-        <p>Room Type: {room.roomType}</p>
+      {room && (
+        <>
+          <h1>{room.roomName}</h1>
 
-        <p>Movie Link: {room.movieLink}</p>
-      </>
-    )}
-<p>Members: {members.length}</p>
-<h2>Chat</h2>
+          <p>Room Code: {room.roomCode}</p>
 
-<input
-  type="text"
-  placeholder="Type a message..."
-  value={message}
-  onChange={(e) => setMessage(e.target.value)}
-/>
-<button onClick={sendMessage}>
-  Send
-</button>
-<h3>Messages</h3>
+          <p>Room Type: {room.roomType}</p>
 
-{messages.map((msg) => (
-  <div key={msg.id}>
-    <p>User {msg.userId}</p>
+          <p>Members: {members.length}</p>
+        </>
+      )}
+
+    </div>
+
+    <div className="content-container">
+
+      <div className="video-section">
+
+        <h2>Video Area</h2>
+
+        {room && (
+          <p>{room.movieLink}</p>
+        )}
+
+      </div>
+
+      <div className="chat-section">
+
+        <h2>Chat</h2>
+
+        <input
+          type="text"
+          placeholder="Type a message..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+
+        <button onClick={sendMessage}>
+          Send
+        </button>
+
+        <h3>Messages</h3>
+
+       {messages.map((msg) => (
+  <div
+    key={msg.id}
+    className={`message ${msg.userId === 1 ? "own" : "other"}`}
+  >
     <p>{msg.message}</p>
   </div>
 ))}
+      </div>
+
+    </div>
 
   </div>
-  
 );
 }
 

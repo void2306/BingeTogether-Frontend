@@ -1,0 +1,43 @@
+.room-container {
+  padding: 20px;
+}
+
+.room-header {
+  margin-bottom: 20px;
+}
+
+.content-container {
+  display: flex;
+  gap: 20px;
+}
+
+.video-section {
+  flex: 2;
+}
+
+.chat-section {
+  flex: 1;
+}
+.chat-section {
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+}
+
+.message {
+  max-width: 70%;
+  padding: 8px 12px;
+  margin: 5px;
+  border-radius: 10px;
+}
+
+.own {
+  align-self: flex-end;
+  background-color: #d1f7c4;
+  text-align: right;
+}
+
+.other {
+  align-self: flex-start;
+  background-color: #f1f1f1;
+}
