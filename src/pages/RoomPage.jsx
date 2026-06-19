@@ -23,6 +23,23 @@ function RoomPage() {
 
      fetchMessages(data.id);
   };
+  const getRoomVibeMessage = (roomType) => {
+  if (!roomType) return "Enjoy your watch session 🎬";
+
+  switch (roomType.toLowerCase()) {
+    case "couple":
+      return "Get cozy together ❤️ enjoy your movie time";
+    
+    case "group":
+      return "Let’s gooo 🔥 enjoy with your squad";
+    
+    case "solo":
+      return "Relax, unwind, and enjoy your time 🎧";
+
+    default:
+      return "Enjoy your watch session 🎬";
+  }
+};
   const fetchMembers = async () => {
 
   const response = await fetch(
@@ -32,6 +49,16 @@ function RoomPage() {
  const data = await response.json();
 
 setMembers(data);
+};
+const getYouTubeId = (url) => {
+  if (!url) return null;
+
+  const regex =
+    /(?:youtube\.com.*v=|youtu\.be\/)([^&]+)/;
+
+  const match = url.match(regex);
+
+  return match ? match[1] : null;
 };
 const fetchMessages = async (roomId) => {
 
@@ -96,14 +123,27 @@ return (
 
       <div className="video-section">
 
-        <h2>Video Area</h2>
 
-        {room && (
-          <p>{room.movieLink}</p>
-        )}
+  {room && (
+    <p>{getRoomVibeMessage(room.roomType)}</p>
+  )}
 
-      </div>
+  {room?.movieLink ? (
+    <iframe
+      width="100%"
+      height="400"
+      src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}`}
+      title="YouTube video player"
+      frameBorder="0"
+      allowFullScreen
+    />
+  ) : (
+    <p>No video available</p>
+  )}
 
+</div>
+
+      {/* 💬 CHAT SECTION */}
       <div className="chat-section">
 
         <h2>Chat</h2>
@@ -121,14 +161,15 @@ return (
 
         <h3>Messages</h3>
 
-       {messages.map((msg) => (
-  <div
-    key={msg.id}
-    className={`message ${msg.userId === 1 ? "own" : "other"}`}
-  >
-    <p>{msg.message}</p>
-  </div>
-))}
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`message ${msg.userId === 1 ? "own" : "other"}`}
+          >
+            <p>{msg.message}</p>
+          </div>
+        ))}
+
       </div>
 
     </div>
