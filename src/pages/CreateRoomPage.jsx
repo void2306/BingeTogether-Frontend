@@ -5,15 +5,14 @@ const navigate = useNavigate();
   const [roomName, setRoomName] = useState("");
   const [roomType, setRoomType] = useState("");
   const [movieLink, setMovieLink] = useState("");
-  const [userId, setUserId] = useState("");
 
 const createRoom = async () => {
-  const requestBody = {
-    roomName,
-    roomType,
-    movieLink,
-    userId: Number(userId)
-  };
+ const requestBody = {
+  roomName,
+  roomType,
+  movieLink,
+  userId: 1
+};
 
   try {
     const response = await fetch("http://localhost:8080/room/create", {
@@ -69,14 +68,6 @@ navigate(`/room/${data.roomCode}`);
 
       <br /><br />
 
-      <input
-        type="number"
-        placeholder="User Id"
-        value={userId}
-        onChange={(e) => setUserId(e.target.value)}
-      />
-
-      <br /><br />
 
       <p>{roomName}</p>
 

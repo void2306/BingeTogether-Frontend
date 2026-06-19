@@ -8,6 +8,7 @@ function RoomPage() {
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState("");
   const fetchRoom = async () => {
 
     const response = await fetch(
@@ -19,6 +20,8 @@ function RoomPage() {
     console.log(data);
 
     setRoom(data);
+
+     fetchMessages(data.id);
   };
   const fetchMembers = async () => {
 
@@ -28,9 +31,7 @@ function RoomPage() {
                                                              
  const data = await response.json();
 
-setRoom(data);
-
-fetchMessages(data.id);
+setMembers(data);
 };
 const fetchMessages = async (roomId) => {
 
@@ -40,9 +41,32 @@ const fetchMessages = async (roomId) => {
 
   const data = await response.json();
 
-  console.log("Messages:", data);
-
+console.log("Fetched Messages:", data);
   setMessages(data);
+};
+const sendMessage = async () => {
+
+  const response = await fetch(
+    "http://localhost:8080/chat/send",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        roomId: room.id,
+        userId: 1,
+        message: message,
+      }),
+    }
+
+  );
+
+  const data = await response.text();
+
+  console.log(data);
+  setMessage("");
+  fetchMessages(room.id);
 };
 
  useEffect(() => {
@@ -51,11 +75,9 @@ const fetchMessages = async (roomId) => {
 }, []);
  return (
   <div>
-    <h1>Room Page</h1>
-
     {room && (
       <>
-        <p>Room Name: {room.roomName}</p>
+        <h1>{room.roomName}</h1>
 
         <p>Room Code: {room.roomCode}</p>
 
@@ -64,11 +86,24 @@ const fetchMessages = async (roomId) => {
         <p>Movie Link: {room.movieLink}</p>
       </>
     )}
-    <h2>Members</h2>
-{members.map((member) => (
-  <div key={member.id.userId}>
-    <p>User ID: {member.id.userId}</p>
-    <p>Role: {member.role}</p>
+<p>Members: {members.length}</p>
+<h2>Chat</h2>
+
+<input
+  type="text"
+  placeholder="Type a message..."
+  value={message}
+  onChange={(e) => setMessage(e.target.value)}
+/>
+<button onClick={sendMessage}>
+  Send
+</button>
+<h3>Messages</h3>
+
+{messages.map((msg) => (
+  <div key={msg.id}>
+    <p>User {msg.userId}</p>
+    <p>{msg.message}</p>
   </div>
 ))}
 
