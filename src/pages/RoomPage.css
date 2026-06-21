@@ -41,3 +41,30 @@
   align-self: flex-start;
   background-color: #f1f1f1;
 }
+.chat-section {
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+}
+
+.input-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+
+  display: flex;
+  flex-direction: column;
+}

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import "./RoomPage.css";
 function RoomPage() {
 
   const { roomCode } = useParams();
-
+const navigate = useNavigate();
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -68,7 +68,7 @@ const fetchMessages = async (roomId) => {
 
   const data = await response.json();
 
-console.log("Fetched Messages:", data);
+//console.log("Fetched Messages:", data);
   setMessages(data);
 };
 const sendMessage = async () => {
@@ -95,11 +95,46 @@ const sendMessage = async () => {
   setMessage("");
   fetchMessages(room.id);
 };
+const leaveRoom = async () => {
 
- useEffect(() => {
+  const response = await fetch(
+    "http://localhost:8080/room/leave",
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        roomId: room.id,
+        userId: 1,
+      }),
+    }
+  );
+
+  const data = await response.text();
+
+  console.log(data);
+
+  navigate("/");
+};
+
+
+useEffect(() => {
   fetchRoom();
   fetchMembers();
 }, []);
+
+useEffect(() => {
+
+  if (!room) return;
+
+  const interval = setInterval(() => {
+    fetchMessages(room.id);
+  }, 3000);
+
+  return () => clearInterval(interval);
+
+}, [room]);
 return (
   <div className="room-container">
 
@@ -114,6 +149,9 @@ return (
           <p>Room Type: {room.roomType}</p>
 
           <p>Members: {members.length}</p>
+          <button onClick={leaveRoom}>
+  Leave Room
+</button>
         </>
       )}
 
@@ -148,27 +186,33 @@ return (
 
         <h2>Chat</h2>
 
-        <input
-          type="text"
-          placeholder="Type a message..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
+<div className="messages-container">
 
-        <button onClick={sendMessage}>
-          Send
-        </button>
+  {messages.map((msg) => (
+    <div
+      key={msg.id}
+      className={`message ${msg.userId === 1 ? "own" : "other"}`}
+    >
+      <p>{msg.message}</p>
+    </div>
+  ))}
 
-        <h3>Messages</h3>
+</div>
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`message ${msg.userId === 1 ? "own" : "other"}`}
-          >
-            <p>{msg.message}</p>
-          </div>
-        ))}
+<div className="input-container">
+
+  <input
+    type="text"
+    placeholder="Type a message..."
+    value={message}
+    onChange={(e) => setMessage(e.target.value)}
+  />
+
+  <button onClick={sendMessage}>
+    Send
+  </button>
+
+</div>
 
       </div>
 
