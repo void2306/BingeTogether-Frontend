@@ -5,6 +5,8 @@ function RoomPage() {
 
   const { roomCode } = useParams();
 const navigate = useNavigate();
+const currentUserId =
+  Number(localStorage.getItem("userId"));
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -82,7 +84,7 @@ const sendMessage = async () => {
       },
       body: JSON.stringify({
         roomId: room.id,
-        userId: 1,
+         userId: Number(localStorage.getItem("userId")),
         message: message,
       }),
     }
@@ -106,7 +108,7 @@ const leaveRoom = async () => {
       },
       body: JSON.stringify({
         roomId: room.id,
-        userId: 1,
+         userId: Number(localStorage.getItem("userId")),
       }),
     }
   );
@@ -191,7 +193,11 @@ return (
   {messages.map((msg) => (
     <div
       key={msg.id}
-      className={`message ${msg.userId === 1 ? "own" : "other"}`}
+      className={`message ${
+  msg.userId === currentUserId
+    ? "own"
+    : "other"
+}`}
     >
       <p>{msg.message}</p>
     </div>
