@@ -18,9 +18,17 @@ function CreateRoomPage() {
       userId: Number(localStorage.getItem("userId")),
     };
 
+
     console.log("USER ID:", localStorage.getItem("userId"));
     console.log("REQUEST BODY:", requestBody);
+     
+    const userId = localStorage.getItem("userId");
 
+if (!userId) {
+  alert("Please login first");
+  navigate("/login");
+  return;
+}
     try {
 
       const response = await fetch(
@@ -37,7 +45,13 @@ function CreateRoomPage() {
       console.log("STATUS:", response.status);
 const room = await response.json();
 
-console.log(room);
+console.log("ROOM OBJECT:", room);
+console.log("ROOM CODE:", room.roomCode);
+
+if (!room.roomCode) {
+  alert("roomCode is undefined");
+  return;
+}
 
 navigate(`/room/${room.roomCode}`);
 
