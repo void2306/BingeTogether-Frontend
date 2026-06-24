@@ -1,72 +1,92 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 function LoginPage() {
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  const login = async () => {
+  const login = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      alert("Please enter both email and password.");
+      return;
+    }
+
+    setLoading(true);
+    const credentials = { email: email.trim(), password: password.trim() };
 
     try {
-
       const response = await fetch("http://localhost:8080/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(credentials),
       });
 
-      console.log("Status:", response.status);
-
-      const text = await response.text();
-      console.log("Raw response:", text);
-
-      // IMPORTANT: handle empty response safely
-      if (!text) {
-        alert("Invalid login (empty response)");
-        return;
+      if (!response.ok) {
+        throw new Error("Invalid email or password credentials.");
       }
 
-      const data = JSON.parse(text);
+      const data = await response.json();
 
-      localStorage.setItem("userId", data.id);
-      localStorage.setItem("username", data.username);
+      if (data && data.id) {
+        localStorage.setItem("userId", String(data.id));
+        localStorage.setItem("username", data.username || "User");
 
-      navigate("/");
+        alert("Logged in successfully! 🎉");
+        navigate("/"); 
+      } else {
+        alert("Server response missing user identity properties.");
+      }
 
     } catch (error) {
-      console.error("Login error:", error);
-      alert("Something went wrong");
+      console.error("Login process failure:", error);
+      alert(error.message || "Failed to connect to backend server.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div>
+    <div style={{ padding: "20px" }}>
       <h1>Login</h1>
+      <form onSubmit={login}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          disabled={loading}
+          required
+        />
+        <br /><br />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          disabled={loading}
+          required
+        />
+        <br /><br />
+        <button type="submit" disabled={loading}>
+          {loading ? "Authenticating..." : "Login"}
+        </button>
+      </form>
 
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-      />
-
-      <br /><br />
-
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password"
-      />
-
-      <br /><br />
-
-      <button onClick={login}>Login</button>
+      <br />
+      {/* Navigation Link to Signup */}
+      <p style={{ fontSize: "14px" }}>
+        Don't have an account?{" "}
+        <Link to="/signup" style={{ color: "#007bff", fontWeight: "bold", textDecoration: "none" }}>
+          Create Account
+        </Link>
+      </p>
     </div>
   );
 }
