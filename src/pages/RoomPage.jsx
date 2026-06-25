@@ -1,18 +1,31 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./RoomPage.css";
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
 
 function RoomPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  
+  // API Player & Automated Jump Blockers
+  const playerRef = useRef(null); 
+  const isSeekingRef = useRef(false);
+  const ignoreNextSyncRef = useRef(false);
 
-  const currentUserId = Number(localStorage.getItem("userId"));
+  const currentUserId = Number(localStorage.getItem("userId")) || 999;
+  
+  // 🔥 Exact string fallback matching your identity configurations
+  const currentUsername = localStorage.getItem("username")?.trim() || "Room Member";
 
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const stompClientRef = useRef(null);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [pendingSync, setPendingSync] = useState(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -57,16 +70,13 @@ function RoomPage() {
     try {
       await fetch("http://localhost:8080/chat/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
           message: message.trim(),
         }),
       });
-
       setMessage("");
       fetchMessages(room.id);
     } catch (err) {
@@ -79,9 +89,7 @@ function RoomPage() {
     try {
       await fetch("http://localhost:8080/room/leave", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
@@ -104,28 +112,25 @@ function RoomPage() {
   };
 
   const getYouTubeId = (url) => {
-    if (!url) return null;
-    const regex = /(?:youtube\.com.*v=|youtu\.be\/)([^&]+)/;
+    if (!url) return "";
+    const regex = /(?:youtube\.com.*v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]+)/;
     const match = url.match(regex);
-    return match ? match[1] : null;
+    return match ? match[1] : url;
   };
 
-  // Lifecycle Sync 1: Initial Room Setup
+  // Initial Room Setup
   useEffect(() => {
     if (!roomCode) return;
     fetchRoom();
     fetchMembers();
   }, [roomCode]);
 
-  // Lifecycle Sync 2: Stable Chat Polling Loop
-  // Optimized to only depend on room.id to prevent infinite re-renders
+  // Stable Chat Polling Loop
   useEffect(() => {
     if (!room?.id) return;
-
     const interval = setInterval(() => {
       fetchMessages(room.id);
     }, 3000);
-
     return () => clearInterval(interval);
   }, [room?.id]); 
 
@@ -133,8 +138,158 @@ function RoomPage() {
     scrollToBottom();
   }, [messages]);
 
+  // AUTOMATIC YOUTUBE API LISTENER
+  useEffect(() => {
+    if (!room?.movieLink) return;
+
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+
+    const initPlayer = () => {
+      playerRef.current = new window.YT.Player("room-video-player", {
+        events: {
+          onStateChange: (event) => {
+            if (ignoreNextSyncRef.current) {
+              if (event.data === window.YT.PlayerState.PLAYING || event.data === window.YT.PlayerState.PAUSED) {
+                ignoreNextSyncRef.current = false;
+              }
+              return;
+            }
+
+            // 🔥 Capture buffering spikes from true user timeline drags
+            if (event.data === window.YT.PlayerState.BUFFERING && !isSeekingRef.current) {
+              setTimeout(() => {
+                if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
+                  const currentTime = playerRef.current.getCurrentTime();
+                  console.log("[USER-SEEK] Manual timeline slider scrub captured:", currentTime);
+                  handleLocalSeek(currentTime);
+                }
+              }, 250); 
+            }
+          }
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      window.onYouTubeIframeAPIReady = initPlayer;
+    }
+
+    return () => {
+      if (playerRef.current && playerRef.current.destroy) {
+        playerRef.current.destroy();
+      }
+    };
+  }, [room?.movieLink]);
+
+  // WebSocket Subscription Lifecycle Management
+  useEffect(() => {
+    const socket = new SockJS("http://localhost:8080/ws-binge");
+    const client = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      onConnect: () => {
+        console.log("Connected to BingeTogether WebSocket Broker! 🎉");
+
+        client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
+          const payload = JSON.parse(message.body);
+          
+          // 🔥 FIX: Check payload.sender to match your Java DTO key exactly!
+          if (payload.sender === currentUsername) {
+            return; // Discard our own echo cleanly
+          }
+
+          if (payload.action === "SEEK_REQUEST") {
+            setPendingSync(payload);
+            setShowSyncModal(true);
+          }
+        });
+      },
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) stompClientRef.current.deactivate();
+    };
+  }, [roomCode, currentUsername]);
+
+  const handleLocalSeek = (seconds) => {
+    if (stompClientRef.current && stompClientRef.current.connected) {
+      // 🔥 Match your Java fields explicitly letter-for-letter
+      const syncPayload = {
+        sender: currentUsername, 
+        action: "SEEK_REQUEST",
+        targetTime: seconds,
+      };
+      
+      stompClientRef.current.publish({
+        destination: `/app/room/${roomCode}/sync`,
+        body: JSON.stringify(syncPayload),
+      });
+    }
+  };
+
+  const acceptSyncPosition = () => {
+    if (pendingSync && playerRef.current && playerRef.current.seekTo) {
+      isSeekingRef.current = true; 
+      ignoreNextSyncRef.current = true; 
+      
+      playerRef.current.seekTo(pendingSync.targetTime, true);
+      
+      setTimeout(() => {
+        isSeekingRef.current = false;
+      }, 1200);
+    }
+    setShowSyncModal(false);
+    setPendingSync(null);
+  };
+
+  const formatTime = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = Math.floor(totalSeconds % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
   return (
     <div className="room-container">
+      
+      {/* ─── DYNAMIC POPUP MODAL BANNER LAYER ─── */}
+      {showSyncModal && pendingSync && (
+        <div style={{
+          position: "fixed", top: "25px", right: "25px", backgroundColor: "#1e1e24", 
+          color: "#fff", padding: "20px", borderRadius: "12px", zIndex: 1000, 
+          boxShadow: "0px 10px 30px rgba(0,0,0,0.4)", border: "1px solid #333", maxWidth: "320px"
+        }}>
+          <p style={{ margin: 0, fontSize: "15px", lineHeight: "1.4" }}>
+            🎬 <strong>{pendingSync.sender}</strong> switched to <strong>{formatTime(pendingSync.targetTime)}</strong>. 
+            <br />
+            <span style={{ color: "#bbb", fontSize: "13px" }}>Do you want to switch?</span>
+          </p>
+          <div style={{ marginTop: "15px", textAlign: "right" }}>
+            <button 
+              onClick={acceptSyncPosition} 
+              style={{ marginRight: "10px", backgroundColor: "#7c5dfa", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}
+            >
+              Yes
+            </button>
+            <button 
+              onClick={() => { setShowSyncModal(false); setPendingSync(null); }} 
+              style={{ backgroundColor: "#ff4a5a", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}
+            >
+              No
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="room-header">
         {room && (
           <>
@@ -169,14 +324,18 @@ function RoomPage() {
         <div className="video-section">
           {room && <p>{getRoomVibeMessage(room.roomType)}</p>}
           {room?.movieLink ? (
-            <iframe
-              width="100%"
-              height="400"
-              src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}`}
-              title="YouTube Video"
-              frameBorder="0"
-              allowFullScreen
-            />
+            <div style={{ borderRadius: "12px", overflow: "hidden", backgroundColor: "#000" }}>
+              <iframe
+                id="room-video-player"
+                width="100%"
+                height="400"
+                src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}?enablejsapi=1&origin=${window.location.origin}`}
+                title="YouTube Video"
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+              />
+            </div>
           ) : (
             <p>No video available</p>
           )}
@@ -203,7 +362,7 @@ function RoomPage() {
               placeholder="Type a message..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()} // Senior touch: submit on enter
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             />
             <button onClick={sendMessage}>Send</button>
           </div>
