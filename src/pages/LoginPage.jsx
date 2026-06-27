@@ -20,7 +20,7 @@ function LoginPage() {
     const credentials = { email: email.trim(), password: password.trim() };
 
     try {
-      const response = await fetch("http://localhost:8080/login", {
+      const response = await fetch("http://localhost:8080/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,12 +34,14 @@ function LoginPage() {
 
       const data = await response.json();
 
-      if (data && data.id) {
-        localStorage.setItem("userId", String(data.id));
-        localStorage.setItem("username", data.username || "User");
+      // 🚨 FIX: Read fields from the nested data.user and capture data.token cleanly now
+      if (data && data.token && data.user) {
+        localStorage.setItem("token", data.token); // Store your secure JWT wristband token!
+        localStorage.setItem("userId", String(data.user.id));
+        localStorage.setItem("username", data.user.username || "User");
 
         alert("Logged in successfully! 🎉");
-        navigate("/"); 
+        navigate("/"); // Takes you straight back to the root watch party layout
       } else {
         alert("Server response missing user identity properties.");
       }
@@ -56,24 +58,32 @@ function LoginPage() {
     <div style={{ padding: "20px" }}>
       <h1>Login</h1>
       <form onSubmit={login}>
+        {/* Email input configured for clean auto-captures */}
         <input
           type="email"
+          name="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
+          autoComplete="username"
           disabled={loading}
           required
         />
         <br /><br />
+        
+        {/* Password input configured for clean auto-captures */}
         <input
           type="password"
+          name="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
+          autoComplete="current-password"
           disabled={loading}
           required
         />
         <br /><br />
+        
         <button type="submit" disabled={loading}>
           {loading ? "Authenticating..." : "Login"}
         </button>

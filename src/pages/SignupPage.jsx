@@ -10,49 +10,41 @@ function SignupPage() {
 
   const navigate = useNavigate();
 
-  const handleSignup = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+ const handleSignupSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      alert("Please fill in all input fields.");
-      return;
+  try {
+    // 🚨 FIX 1: Point to the new secure public authentication route
+    const response = await fetch("http://localhost:8080/auth/signup", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json" 
+      },
+      // 🚨 FIX 2: Ensure your model attributes exactly match what User.java expects
+      body: JSON.stringify({
+        username: username.trim(), // Make sure your state variable name matches
+        email: email.trim(),
+        password: password
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Registration failed at server level");
     }
 
-    setLoading(true);
-    const newUser = {
-      username: username.trim(),
-      email: email.trim(),
-      password: password.trim()
-    };
+    alert("Account created successfully! 🎉 Now take your seat and log in.");
+    navigate("/login");
 
-    try {
-      const response = await fetch("http://localhost:8080/signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newUser),
-      });
-
-      if (!response.ok) {
-        throw new Error("Registration failed. Email might already be taken.");
-      }
-
-      alert("Account created successfully! 🎉 Please log in.");
-      navigate("/login"); 
-
-    } catch (error) {
-      console.error("Signup process failure:", error);
-      alert(error.message || "Failed to reach registration server.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (err) {
+    console.error("Signup error details:", err);
+    alert("Registration failed. Please try again.");
+  }
+};
 
   return (
     <div style={{ padding: "20px" }}>
       <h1>Sign Up</h1>
-      <form onSubmit={handleSignup}>
+      <form onSubmit={handleSignupSubmit}>
         {/* FIRST BOX: Username */}
         <input
           type="text"

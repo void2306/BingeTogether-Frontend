@@ -1,0 +1,10 @@
+/* CreateRoomPage.css
+input:focus, select:focus {
+  outline: none;
+  border-color: #7c5dfa !important;
+}
+
+button:hover {
+  filter: brightness(1.15);
+  transition: all 0.2s ease;
+} */
