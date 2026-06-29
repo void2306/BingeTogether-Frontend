@@ -45,25 +45,23 @@ function SignupPage() {
           } catch (_) {
             if (text) errorMessage = text;
           }
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(errorMessage);
       }
 
-      alert("Account created successfully! 🎉 Please log in.");
-      navigate("/login"); 
+      alert("Account created successfully! 🎉 Now take your seat and log in.");
+      navigate("/login");
 
-    } catch (error) {
-      console.error("Signup process failure:", error);
-      alert(error.message || "Failed to reach registration server.");
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error("Signup error details:", err);
+      alert("Registration failed. Please try again.");
     }
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <h1>Sign Up</h1>
-      <form onSubmit={handleSignup}>
+      <form onSubmit={handleSignupSubmit}>
         {/* FIRST BOX: Username */}
         <input
           type="text"
@@ -79,7 +77,7 @@ function SignupPage() {
         <input
           type="email"
           value={email} // Verified link to email state
-          onChange={(e) => setEmail(e.target.value)} 
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="Email Address"
           disabled={loading}
           required

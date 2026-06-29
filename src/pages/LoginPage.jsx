@@ -41,7 +41,7 @@ function LoginPage() {
         localStorage.setItem("token", data.token);
 
         alert("Logged in successfully! 🎉");
-        navigate("/"); 
+        navigate("/"); // Takes you straight back to the root watch party layout
       } else {
         alert("Server response missing user identity properties.");
       }
@@ -58,24 +58,32 @@ function LoginPage() {
     <div style={{ padding: "20px" }}>
       <h1>Login</h1>
       <form onSubmit={login}>
+        {/* Email input configured for clean auto-captures */}
         <input
           type="email"
+          name="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
+          autoComplete="username"
           disabled={loading}
           required
         />
         <br /><br />
+
+        {/* Password input configured for clean auto-captures */}
         <input
           type="password"
+          name="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
+          autoComplete="current-password"
           disabled={loading}
           required
         />
         <br /><br />
+
         <button type="submit" disabled={loading}>
           {loading ? "Authenticating..." : "Login"}
         </button>
