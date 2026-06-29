@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import "./RoomPage.css";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import { API_BASE_URL, WS_BASE_URL } from "../config";
 
 function RoomPage() {
   const { roomCode } = useParams();
@@ -33,7 +34,11 @@ function RoomPage() {
 
   const fetchRoom = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/room/${roomCode}`);
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
+      });
       if (!response.ok) throw new Error("Failed to load room details.");
       const data = await response.json();
       setRoom(data);
@@ -45,7 +50,11 @@ function RoomPage() {
 
   const fetchMembers = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/room/${roomCode}/members`);
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
+      });
       const data = await response.json();
       setMembers(data);
     } catch (err) {
@@ -56,7 +65,11 @@ function RoomPage() {
   const fetchMessages = async (roomId) => {
     if (!roomId) return;
     try {
-      const response = await fetch(`http://localhost:8080/chat/${roomId}`);
+      const response = await fetch(`${API_BASE_URL}/chat/${roomId}`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
+      });
       const data = await response.json();
       setMessages(data);
     } catch (err) {
@@ -68,9 +81,12 @@ function RoomPage() {
     if (!message.trim() || !room?.id) return;
 
     try {
-      await fetch("http://localhost:8080/chat/send", {
+      await fetch(`${API_BASE_URL}/chat/send`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
@@ -87,9 +103,12 @@ function RoomPage() {
   const leaveRoom = async () => {
     if (!room?.id) return;
     try {
-      await fetch("http://localhost:8080/room/leave", {
+      await fetch(`${API_BASE_URL}/room/leave`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
@@ -190,7 +209,7 @@ function RoomPage() {
 
   // WebSocket Subscription Lifecycle Management
   useEffect(() => {
-    const socket = new SockJS("http://localhost:8080/ws-binge");
+    const socket = new SockJS(WS_BASE_URL);
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,

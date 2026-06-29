@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function CreateRoomPage() {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ function CreateRoomPage() {
     console.log("[DEBUG] TRANSMITTING PAYLOAD:", requestBody);
        
     try {
-      const response = await fetch("http://localhost:8080/room/create", {
+      const response = await fetch(`${API_BASE_URL}/room/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

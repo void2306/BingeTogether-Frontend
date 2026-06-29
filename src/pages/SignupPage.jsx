@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function SignupPage() {
   // 1. Declare three distinct independent state variables
@@ -26,7 +27,7 @@ function SignupPage() {
     };
 
     try {
-      const response = await fetch("http://localhost:8080/signup", {
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -35,7 +36,17 @@ function SignupPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Registration failed. Email might already be taken.");
+        let errorMessage = "Registration failed. Email might already be taken.";
+        try {
+          const text = await response.text();
+          try {
+            const parsed = JSON.parse(text);
+            errorMessage = parsed.message || parsed.error || text || errorMessage;
+          } catch (_) {
+            if (text) errorMessage = text;
+          }
+        } catch (_) {}
+        throw new Error(errorMessage);
       }
 
       alert("Account created successfully! 🎉 Please log in.");

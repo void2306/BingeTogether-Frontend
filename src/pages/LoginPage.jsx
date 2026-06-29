@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,7 +21,7 @@ function LoginPage() {
     const credentials = { email: email.trim(), password: password.trim() };
 
     try {
-      const response = await fetch("http://localhost:8080/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,9 +35,10 @@ function LoginPage() {
 
       const data = await response.json();
 
-      if (data && data.id) {
-        localStorage.setItem("userId", String(data.id));
-        localStorage.setItem("username", data.username || "User");
+      if (data && data.user && data.user.id) {
+        localStorage.setItem("userId", String(data.user.id));
+        localStorage.setItem("username", data.user.username || "User");
+        localStorage.setItem("token", data.token);
 
         alert("Logged in successfully! 🎉");
         navigate("/"); 

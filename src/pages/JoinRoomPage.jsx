@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function JoinRoomPage() {
   const [roomCode, setRoomCode] = useState("");
@@ -33,10 +34,11 @@ function JoinRoomPage() {
     console.log("[DEBUG] Sending Clean Join Payload:", payload);
 
     try {
-      const response = await fetch("http://localhost:8080/room/join", {
+      const response = await fetch(`${API_BASE_URL}/room/join`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify(payload),
       });
