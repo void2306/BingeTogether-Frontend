@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import "./RoomPage.css";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import { API_BASE_URL, WS_BASE_URL } from "../config";
 
 function RoomPage() {
   const { roomCode } = useParams();
@@ -29,6 +30,7 @@ function RoomPage() {
 
   const fetchRoom = async () => {
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token");
       const response = await fetch(`http://54.164.153.160:8080/room/${roomCode}`, {
         method: "GET",
@@ -38,6 +40,13 @@ function RoomPage() {
         }
       });
       
+=======
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+>>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
       if (!response.ok) throw new Error("Failed to load room details.");
       const data = await response.json();
       setRoom(data);
@@ -49,12 +58,18 @@ function RoomPage() {
 
   const fetchMembers = async () => {
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token");
       const response = await fetch(`http://54.164.153.160:8080/room/${roomCode}/members`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
+=======
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+>>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         }
       });
       const data = await response.json();
@@ -67,12 +82,18 @@ function RoomPage() {
   const fetchMessages = async (roomId) => {
     if (!roomId) return;
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token");
       const response = await fetch(`http://54.164.153.160:8080/chat/${roomId}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
+=======
+      const response = await fetch(`${API_BASE_URL}/chat/${roomId}`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+>>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         }
       });
       const data = await response.json();
@@ -86,12 +107,20 @@ function RoomPage() {
     if (!message.trim() || !room?.id) return;
 
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token");
       await fetch("http://54.164.153.160:8080/chat/send", {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json" 
+=======
+      await fetch(`${API_BASE_URL}/chat/send`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+>>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         },
         body: JSON.stringify({
           roomId: room.id,
@@ -109,12 +138,20 @@ function RoomPage() {
   const leaveRoom = async () => {
     if (!room?.id) return;
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token");
       await fetch("http://54.164.153.160:8080/room/leave", {
         method: "DELETE",
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json" 
+=======
+      await fetch(`${API_BASE_URL}/room/leave`, {
+        method: "DELETE",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+>>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         },
         body: JSON.stringify({
           roomId: room.id,
@@ -215,10 +252,14 @@ function RoomPage() {
 
   // WebSocket Subscription Lifecycle Management
   useEffect(() => {
+<<<<<<< HEAD
     // Read clean real-time user string right at connection handshake window
     const freshUsername = localStorage.getItem("username")?.trim() || currentUsername;
 
     const socket = new SockJS('http://54.164.153.160:8080/ws');
+=======
+    const socket = new SockJS(WS_BASE_URL);
+>>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,

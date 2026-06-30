@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -35,11 +36,10 @@ function LoginPage() {
 
       const data = await response.json();
 
-      // 🚨 FIX: Read fields from the nested data.user and capture data.token cleanly now
-      if (data && data.token && data.user) {
-        localStorage.setItem("token", data.token); // Store your secure JWT wristband token!
+      if (data && data.user && data.user.id) {
         localStorage.setItem("userId", String(data.user.id));
         localStorage.setItem("username", data.user.username || "User");
+        localStorage.setItem("token", data.token);
 
         alert("Logged in successfully! 🎉");
         navigate("/"); // Takes you straight back to the root watch party layout
@@ -71,7 +71,7 @@ function LoginPage() {
           required
         />
         <br /><br />
-        
+
         {/* Password input configured for clean auto-captures */}
         <input
           type="password"
@@ -84,7 +84,7 @@ function LoginPage() {
           required
         />
         <br /><br />
-        
+
         <button type="submit" disabled={loading}>
           {loading ? "Authenticating..." : "Login"}
         </button>

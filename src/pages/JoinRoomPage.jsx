@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
 function JoinRoomPage() {
   const [roomCode, setRoomCode] = useState("");
@@ -40,6 +41,7 @@ function JoinRoomPage() {
           // 🔥 FIXED: Token integration stops security gateway dropping this post data
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify(payload),
       });
