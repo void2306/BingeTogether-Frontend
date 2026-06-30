@@ -299,3 +299,52 @@
 .leave-btn:hover {
   transform: translateY(-2px);
 }
+/* Container wrappers to manage alignment areas */
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.own-wrapper {
+  align-items: flex-end; /* Pushes your name and bubble to the right side */
+}
+
+.other-wrapper {
+  align-items: flex-start; /* Keeps friends' names and bubbles on the left side */
+}
+
+/* Username Label Styles */
+.message-username {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 3px;
+  padding: 0 4px;
+}
+
+/* Base Bubble Customizations */
+.message-bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  word-wrap: break-word;
+}
+
+.own-bubble {
+  background-color: #007bff; /* Clean Blue for your text items */
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+
+.other-bubble {
+  background-color: #2a2a35; /* Dark slate grey for friends */
+  color: #fff;
+  border-bottom-left-radius: 2px;
+}
+
+.message-bubble p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}

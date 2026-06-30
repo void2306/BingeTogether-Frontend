@@ -11,6 +11,7 @@ function LoginPage() {
   const login = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
+    
     if (!email.trim() || !password.trim()) {
       alert("Please enter both email and password.");
       return;
@@ -20,7 +21,7 @@ function LoginPage() {
     const credentials = { email: email.trim(), password: password.trim() };
 
     try {
-      const response = await fetch("http://localhost:8080/auth/login", {
+      const response = await fetch("http://54.164.153.160:8080/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

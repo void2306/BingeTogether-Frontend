@@ -15,7 +15,7 @@ function SignupPage() {
 
   try {
     // 🚨 FIX 1: Point to the new secure public authentication route
-    const response = await fetch("http://localhost:8080/auth/signup", {
+    const response = await fetch("http://54.164.153.160:8080/auth/signup", {
       method: "POST",
       headers: { 
         "Content-Type": "application/json" 

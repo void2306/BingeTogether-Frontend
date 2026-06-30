@@ -6,17 +6,17 @@ function JoinRoomPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleJoinRoom = async () => {
+  const handleJoinRoom = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    
     const userId = localStorage.getItem("userId");
     
-    // 1. Guard Clause: Check authentication state
     if (!userId || userId === "undefined" || userId === "null") {
       alert("Please log in first.");
       navigate("/login");
       return;
     }
 
-    // 2. Guard Clause: Check input field state
     if (!roomCode.trim()) {
       alert("Please enter a valid Room Code.");
       return;
@@ -24,7 +24,6 @@ function JoinRoomPage() {
 
     setLoading(true);
 
-    // 3. FIX: Reference 'roomCode' state variable correctly
     const payload = {
       roomCode: roomCode.trim(),
       userId: Number(userId)
@@ -33,22 +32,31 @@ function JoinRoomPage() {
     console.log("[DEBUG] Sending Clean Join Payload:", payload);
 
     try {
-      const response = await fetch("http://localhost:8080/room/join", {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch("http://54.164.153.160:8080/room/join", {
         method: "POST",
         headers: {
+          // 🔥 FIXED: Token integration stops security gateway dropping this post data
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
 
+      if (!response.ok) {
+        throw new Error(`Server responded with status code ${response.status}`);
+      }
+
       const data = await response.json();
       console.log("[DEBUG] Server Handshake Data:", data);
 
-      if (data.success) {
+      if (data.success || data.roomCode) {
         alert("Successfully joined watch party! 🎉");
-        navigate(`/room/${data.roomCode}`); // Direct route navigation jump
+        const targetRoomCode = data.roomCode || roomCode.trim();
+        navigate(`/room/${targetRoomCode}`); 
       } else {
-        alert(`Failed to join room: ${data.message} ❌`);
+        alert(`Failed to join room: ${data.message || "Unknown error"} ❌`);
       }
 
     } catch (error) {
