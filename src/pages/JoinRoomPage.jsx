@@ -35,7 +35,7 @@ function JoinRoomPage() {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch("http://54.164.153.160:8080/room/join", {
+      const response = await fetch("/api/rooms/join", {
         method: "POST",
         headers: {
           // 🔥 FIXED: Token integration stops security gateway dropping this post data

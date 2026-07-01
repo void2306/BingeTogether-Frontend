@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import "./RoomPage.css";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+// 🔑 Config variables imported correctly
 import { API_BASE_URL, WS_BASE_URL } from "../config";
 
 function RoomPage() {
@@ -24,15 +25,18 @@ function RoomPage() {
   const [message, setMessage] = useState("");
   const stompClientRef = useRef(null);
 
+  // Dynamic Pop-up State
+  const [pendingSync, setPendingSync] = useState(null);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const fetchRoom = async () => {
     try {
-<<<<<<< HEAD
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://54.164.153.160:8080/room/${roomCode}`, {
+      // 🎯 Using centralized API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -40,13 +44,6 @@ function RoomPage() {
         }
       });
       
-=======
-      const response = await fetch(`${API_BASE_URL}/room/${roomCode}`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        }
-      });
->>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
       if (!response.ok) throw new Error("Failed to load room details.");
       const data = await response.json();
       setRoom(data);
@@ -58,18 +55,13 @@ function RoomPage() {
 
   const fetchMembers = async () => {
     try {
-<<<<<<< HEAD
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://54.164.153.160:8080/room/${roomCode}/members`, {
+      // 🎯 Using centralized API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
-=======
-      const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
->>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         }
       });
       const data = await response.json();
@@ -82,18 +74,13 @@ function RoomPage() {
   const fetchMessages = async (roomId) => {
     if (!roomId) return;
     try {
-<<<<<<< HEAD
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://54.164.153.160:8080/chat/${roomId}`, {
+      // 🎯 Using centralized API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/chat/${roomId}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
-=======
-      const response = await fetch(`${API_BASE_URL}/chat/${roomId}`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
->>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         }
       });
       const data = await response.json();
@@ -107,20 +94,13 @@ function RoomPage() {
     if (!message.trim() || !room?.id) return;
 
     try {
-<<<<<<< HEAD
       const token = localStorage.getItem("token");
-      await fetch("http://54.164.153.160:8080/chat/send", {
+      // 🎯 Using centralized API_BASE_URL
+      await fetch(`${API_BASE_URL}/chat/send`, {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json" 
-=======
-      await fetch(`${API_BASE_URL}/chat/send`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
->>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         },
         body: JSON.stringify({
           roomId: room.id,
@@ -138,20 +118,13 @@ function RoomPage() {
   const leaveRoom = async () => {
     if (!room?.id) return;
     try {
-<<<<<<< HEAD
       const token = localStorage.getItem("token");
-      await fetch("http://54.164.153.160:8080/room/leave", {
+      // 🎯 Using centralized API_BASE_URL
+      await fetch(`${API_BASE_URL}/room/leave`, {
         method: "DELETE",
         headers: { 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json" 
-=======
-      await fetch(`${API_BASE_URL}/room/leave`, {
-        method: "DELETE",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
->>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
         },
         body: JSON.stringify({
           roomId: room.id,
@@ -181,14 +154,19 @@ function RoomPage() {
     return match ? match[1] : url;
   };
 
-  // Initial Room Setup
+  const formatTime = (timeInSeconds) => {
+    if (isNaN(timeInSeconds)) return "0:00";
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  };
+
   useEffect(() => {
     if (!roomCode) return;
     fetchRoom();
     fetchMembers();
   }, [roomCode]);
 
-  // Stable Chat Polling Loop
   useEffect(() => {
     if (!room?.id) return;
     const interval = setInterval(() => {
@@ -201,7 +179,6 @@ function RoomPage() {
     scrollToBottom();
   }, [messages]);
 
-  // AUTOMATIC YOUTUBE API LISTENER
   useEffect(() => {
     if (!room?.movieLink) return;
 
@@ -250,16 +227,10 @@ function RoomPage() {
     };
   }, [room?.movieLink]);
 
-  // WebSocket Subscription Lifecycle Management
+  // WebSocket Subscription Management
   useEffect(() => {
-<<<<<<< HEAD
-    // Read clean real-time user string right at connection handshake window
-    const freshUsername = localStorage.getItem("username")?.trim() || currentUsername;
-
-    const socket = new SockJS('http://54.164.153.160:8080/ws');
-=======
+    // 🎯 Using centralized WS_BASE_URL endpoint dynamically
     const socket = new SockJS(WS_BASE_URL);
->>>>>>> ff09225fe26615f5fea3db8df4f50eb4715214b6
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
@@ -270,21 +241,15 @@ function RoomPage() {
           const payload = JSON.parse(message.body);
           console.log("[DEBUG] Received Sync Payload from WebSocket:", payload);
 
-          // 🎯 STOP your own tab from responding to actions you triggered
-          if (payload.sender === freshUsername) {
+          if (payload.sender === currentUsername) {
             return; 
           }
 
-          // 🎬 SEAMLESS AUTO-SYNC MECHANISM
-          if (payload.action === "SEEK_REQUEST" && playerRef.current && playerRef.current.seekTo) {
-            isSeekingRef.current = true; 
-            ignoreNextSyncRef.current = true; 
-            
-            playerRef.current.seekTo(payload.targetTime, true);
-            
-            setTimeout(() => {
-              isSeekingRef.current = false;
-            }, 1200);
+          if (payload.action === "SEEK_REQUEST" && playerRef.current) {
+            setPendingSync({
+              sender: payload.sender,
+              targetTime: payload.targetTime
+            });
           }
         });
       },
@@ -299,11 +264,9 @@ function RoomPage() {
   }, [roomCode, currentUsername]);
 
   const handleLocalSeek = (seconds) => {
-    const freshUsername = localStorage.getItem("username")?.trim() || currentUsername;
-
     if (stompClientRef.current && stompClientRef.current.connected) {
       const syncPayload = {
-        sender: freshUsername, 
+        sender: currentUsername, 
         action: "SEEK_REQUEST",
         targetTime: seconds, 
       };
@@ -319,6 +282,34 @@ function RoomPage() {
 
   return (
     <div className="room-container">
+      {pendingSync && (
+        <div className="sync-popup-overlay" style={{
+          position: "fixed", top: "25px", left: "50%", transform: "translateX(-50%)",
+          backgroundColor: "#1c1c27", color: "#ffffff", padding: "16px 28px",
+          borderRadius: "12px", boxShadow: "0px 10px 30px rgba(0,0,0,0.6)", zIndex: 9999,
+          display: "flex", gap: "20px", alignItems: "center", border: "1px solid #32324d"
+        }}>
+          <span style={{ fontSize: "14px", letterSpacing: "0.3px" }}>
+            🎬 <strong>{pendingSync.sender}</strong> wants to switch to <strong>{formatTime(pendingSync.targetTime)}</strong>. Do you?
+          </span>
+          
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => {
+              isSeekingRef.current = true;
+              ignoreNextSyncRef.current = true;
+              playerRef.current.seekTo(pendingSync.targetTime, true);
+              setPendingSync(null);
+              setTimeout(() => { isSeekingRef.current = false; }, 1200);
+            }} style={{ backgroundColor: "#2ed573", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
+              Yes
+            </button>
+            <button onClick={() => setPendingSync(null)} style={{ backgroundColor: "#ff4757", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
+              No
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="room-header">
         {room && (
           <>
@@ -377,7 +368,7 @@ function RoomPage() {
               messages.map((msg) => {
                 const isMyMessage = 
                   msg.userId === currentUserId || 
-                  msg.sender === freshUsername;
+                  msg.sender === currentUsername;
 
                 return (
                   <div
@@ -387,7 +378,6 @@ function RoomPage() {
                     <span className="message-username">
                       {isMyMessage ? "You" : (msg.sender || "Member")}
                     </span>
-                    
                     <div className={`message-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
                       <p>{msg.message}</p>
                     </div>
@@ -408,7 +398,6 @@ function RoomPage() {
             <button onClick={sendMessage}>Send</button>
           </div>
         </div>
-
       </div>
     </div>
   );

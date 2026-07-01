@@ -43,7 +43,7 @@ function CreateRoomPage() {
     console.log("[DEBUG] TRANSMITTING PAYLOAD:", requestBody);
        
     try {
-      const response = await fetch("http://54.164.153.160:8080/room/create", {
+      const response = await fetch("/api/rooms/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
