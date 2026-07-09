@@ -41,9 +41,10 @@ function CreateRoomPage() {
     };
 
     console.log("[DEBUG] TRANSMITTING PAYLOAD:", requestBody);
-       
+        
     try {
-      const response = await fetch("/api/rooms/create", {
+      // 🚀 Hits the dynamic server endpoint perfectly now without /api proxy prefix
+      const response = await fetch(`${API_BASE_URL}/rooms/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -114,7 +115,6 @@ function CreateRoomPage() {
       />
 
       <br /><br />
-
       <button onClick={createRoom} disabled={loading}>
         {loading ? "Generating Party Space..." : "Create Room"}
       </button>

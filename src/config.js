@@ -1,2 +1,2 @@
-export const API_BASE_URL = "https://mortuary-panda-panning.ngrok-free.app";
-export const WS_BASE_URL = "wss://mortuary-panda-panning.ngrok-free.app/ws-binge";
+export const API_BASE_URL = "http://54.211.233.151:8080";
+export const WS_BASE_URL = "ws://54.211.233.151:8080/ws-binge";

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE_URL } from "../config"; // 🔑 Target secure ngrok tunnel
 
 function SignupPage() {
   const [username, setUsername] = useState("");
@@ -14,16 +15,16 @@ function SignupPage() {
     setLoading(true);
 
     try {
-    const response = await fetch("/api/auth/signup", {
+      // 🚀 Hits the dynamic server endpoint perfectly now
+const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json" 
         },
         body: JSON.stringify({
-          username: username.trim(), // 🔑 Explicitly matches User.java fields
+          username: username.trim(),
           email: email.trim(),
           password: password.trim()
-          // Removed manual 'id' entirely so PostgreSQL IDENTITY works perfectly
         }),
       });
 

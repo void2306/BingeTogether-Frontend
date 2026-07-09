@@ -35,12 +35,13 @@ function RoomPage() {
   const fetchRoom = async () => {
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Using centralized API_BASE_URL
+      // 🎯 Bypassing Ngrok warning overlay via headers configuration
       const response = await fetch(`${API_BASE_URL}/room/${roomCode}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
         }
       });
       
@@ -56,12 +57,13 @@ function RoomPage() {
   const fetchMembers = async () => {
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Using centralized API_BASE_URL
+      // 🎯 Bypassing Ngrok warning overlay via headers configuration
       const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
         }
       });
       const data = await response.json();
@@ -75,12 +77,13 @@ function RoomPage() {
     if (!roomId) return;
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Using centralized API_BASE_URL
+      // 🎯 Bypassing Ngrok warning overlay via headers configuration
       const response = await fetch(`${API_BASE_URL}/chat/${roomId}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
         }
       });
       const data = await response.json();
@@ -95,12 +98,12 @@ function RoomPage() {
 
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Using centralized API_BASE_URL
       await fetch(`${API_BASE_URL}/chat/send`, {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json" 
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
         },
         body: JSON.stringify({
           roomId: room.id,
@@ -119,12 +122,12 @@ function RoomPage() {
     if (!room?.id) return;
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Using centralized API_BASE_URL
       await fetch(`${API_BASE_URL}/room/leave`, {
         method: "DELETE",
         headers: { 
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json" 
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
         },
         body: JSON.stringify({
           roomId: room.id,
@@ -229,30 +232,37 @@ function RoomPage() {
 
   // WebSocket Subscription Management
   useEffect(() => {
-    // 🎯 Using centralized WS_BASE_URL endpoint dynamically
-    const socket = new SockJS(WS_BASE_URL);
+    console.log("[DEBUG] Connecting via SockJS to:", WS_BASE_URL);
+
     const client = new Client({
-      webSocketFactory: () => socket,
+      webSocketFactory: () => new SockJS(WS_BASE_URL),
+      connectHeaders: {
+        "ngrok-skip-browser-warning": "true"
+      },
       reconnectDelay: 5000,
       onConnect: () => {
-        console.log("Connected to BingeTogether WebSocket Broker! 🎉");
+        console.log("Connected to BingeTogether WebSocket Broker via SockJS! 🎉");
 
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
           console.log("[DEBUG] Received Sync Payload from WebSocket:", payload);
 
-          if (payload.sender === currentUsername) {
+          // 🎯 SAFE DYNAMIC FILTER MAPPING (Checks sender fallback keys cleanly)
+          const packetSender = payload.sender || payload.username || payload.nickname;
+
+          if (packetSender && packetSender.trim() === currentUsername.trim()) {
             return; 
           }
 
-          if (payload.action === "SEEK_REQUEST" && playerRef.current) {
+          if (playerRef.current && (payload.targetTime !== undefined || payload.action)) {
+            console.log("[POPUP TRIGGERED] Showing synchronization modal for time:", payload.targetTime);
             setPendingSync({
-              sender: payload.sender,
-              targetTime: payload.targetTime
+              sender: packetSender || "Another Member",
+              targetTime: Number(payload.targetTime)
             });
           }
         });
-      },
+      }
     });
 
     client.activate();
@@ -264,19 +274,23 @@ function RoomPage() {
   }, [roomCode, currentUsername]);
 
   const handleLocalSeek = (seconds) => {
-    if (stompClientRef.current && stompClientRef.current.connected) {
+    const client = stompClientRef.current;
+    
+    if (client && client.connected) {
       const syncPayload = {
         sender: currentUsername, 
         action: "SEEK_REQUEST",
         targetTime: seconds, 
       };
       
-      console.log("[DEBUG] Sending Sync Payload to Backend:", syncPayload);
+      console.log("[DEBUG] Pushing frame packet out:", syncPayload);
 
-      stompClientRef.current.publish({
+      client.publish({
         destination: `/app/room/${roomCode}/sync`,
         body: JSON.stringify(syncPayload),
       });
+    } else {
+      console.warn("[WARN] STOMP Client is not connected yet.");
     }
   };
 

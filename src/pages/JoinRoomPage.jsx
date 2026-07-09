@@ -35,13 +35,13 @@ function JoinRoomPage() {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch("/api/rooms/join", {
+      // 🚀 Hits the dynamic server endpoint perfectly now with singular /room/join and bypass header
+      const response = await fetch(`${API_BASE_URL}/room/join`, {
         method: "POST",
         headers: {
-          // 🔥 FIXED: Token integration stops security gateway dropping this post data
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
+          "ngrok-skip-browser-warning": "69420" // 🔑 Bypasses the ngrok interstitial wall
         },
         body: JSON.stringify(payload),
       });
