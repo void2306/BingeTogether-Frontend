@@ -1,12 +1,12 @@
 {
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "https://mortuary-panda-panning.ngrok-free.app/api/:path*"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "package.json",
+      "use": "@vercel/static-build"
     }
-  ]
+  ],
+  "env": {
+    "VITE_API_URL": "https://bingetogether-production.up.railway.app"
+  }
 }
