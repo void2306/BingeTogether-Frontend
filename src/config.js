@@ -1,2 +1,3 @@
-export const API_BASE_URL = "http://54.211.233.151:8080";
-export const WS_BASE_URL = "ws://54.211.233.151:8080/ws-binge";
+export const API_BASE_URL = "https://bingetogether-production.up.railway.app";
+// ✅ Changed from wss to https because SockJS needs standard web URL protocols!
+export const WS_BASE_URL = "https://bingetogether-production.up.railway.app/ws-binge";
