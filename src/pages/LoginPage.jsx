@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { API_BASE_URL } from "../config";
+import { GoogleLogin } from "@react-oauth/google";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,9 +10,9 @@ function LoginPage() {
 
   const navigate = useNavigate();
 
+  // Existing Standard Traditional Credentials Login Loop
   const login = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-
     
     if (!email.trim() || !password.trim()) {
       alert("Please enter both email and password.");
@@ -22,8 +23,7 @@ function LoginPage() {
     const credentials = { email: email.trim(), password: password.trim() };
 
     try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -43,7 +43,7 @@ function LoginPage() {
         localStorage.setItem("token", data.token);
 
         alert("Logged in successfully! 🎉");
-        navigate("/"); // Takes you straight back to the root watch party layout
+        navigate("/"); 
       } else {
         alert("Server response missing user identity properties.");
       }
@@ -56,11 +56,51 @@ function LoginPage() {
     }
   };
 
+  // 🚀 Secure Google Authentication Flow Handler
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    console.log("Incoming raw validation payload matrix:", credentialResponse);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/google/callback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: credentialResponse.credential }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Google callback validation was rejected by the server backend context.");
+      }
+
+      const data = await response.json();
+
+      if (data && data.user && data.user.id) {
+        localStorage.setItem("userId", String(data.user.id));
+        localStorage.setItem("username", data.user.username || "User");
+        localStorage.setItem("token", data.token);
+        if(data.user.avatarUrl) {
+           localStorage.setItem("avatarUrl", data.user.avatarUrl);
+        }
+
+        alert("Google Authentication Successful! 🎉");
+        navigate("/"); 
+      } else {
+        alert("Server processed details but returned missing schema structures.");
+      }
+    } catch (error) {
+      console.error("OAuth loop failure metrics:", error);
+      alert(error.message || "Failed to finalize authentication handshake with server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: "20px" }}>
       <h1>Login</h1>
       <form onSubmit={login}>
-        {/* Email input configured for clean auto-captures */}
         <input
           type="email"
           name="email"
@@ -73,7 +113,6 @@ function LoginPage() {
         />
         <br /><br />
 
-        {/* Password input configured for clean auto-captures */}
         <input
           type="password"
           name="password"
@@ -91,8 +130,26 @@ function LoginPage() {
         </button>
       </form>
 
+      {/* 🚀 PERFECTLY CENTERED GOOGLE BUTTON WRAPPER */}
+      <div style={{ 
+          marginTop: "20px", 
+          width: "100%", 
+          display: "flex", 
+          justifyContent: "center" 
+      }}>
+          <div style={{ width: "250px" }}>
+              <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => {
+                    console.error("Identity collection context crashed at Google layer runtime prompt");
+                    alert("Google login sequence failed to fire up properly.");
+                  }}
+                  disabled={loading}
+              />
+          </div>
+      </div>
+
       <br />
-      {/* Navigation Link to Signup */}
       <p style={{ fontSize: "14px" }}>
         Don't have an account?{" "}
         <Link to="/signup" style={{ color: "#007bff", fontWeight: "bold", textDecoration: "none" }}>

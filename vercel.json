@@ -8,5 +8,11 @@
   ],
   "env": {
     "VITE_API_URL": "https://bingetogether-production.up.railway.app"
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
