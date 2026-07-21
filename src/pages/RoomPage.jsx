@@ -17,7 +17,7 @@ function RoomPage() {
   const ignoreNextSyncRef = useRef(false);
 
   const currentUserId = Number(localStorage.getItem("userId")) || 999;
-  const currentUsername = localStorage.getItem("username")?.trim() || "Room Member";
+  const currentUsername = localStorage.getItem("username")?.trim() || "You";
 
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
@@ -65,7 +65,7 @@ function RoomPage() {
         }
       });
       const data = await response.json();
-      console.log("[DEBUG] MEMBERS LIST:", data);
+      console.log("[DEBUG] MEMBERS LIST RAW DATA:", data);
       setMembers(data);
     } catch (err) {
       console.error("Error fetching members:", err);
@@ -107,6 +107,7 @@ function RoomPage() {
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
+          sender: currentUsername,
           message: message.trim(),
         }),
       });
@@ -168,36 +169,45 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // 🎯 Deep-Match Name Resolver for Room Members
+  // 🎯 REAL USERNAME RESOLVER FOR CHAT MESSAGES
   const getSenderName = (msg) => {
-    if (!msg) return "Member";
+    if (!msg) return "User";
 
-    // 1. Check if direct sender string is present
-    if (msg.sender && typeof msg.sender === "string") return msg.sender;
+    // 1. Check if backend/payload has explicit sender strings
+    if (msg.sender && typeof msg.sender === "string" && !msg.sender.startsWith("Member #")) {
+      return msg.sender;
+    }
     if (msg.username && typeof msg.username === "string") return msg.username;
     if (msg.senderName && typeof msg.senderName === "string") return msg.senderName;
 
-    // 2. Search inside fetched room members array
+    // 2. Search inside members array for matching userId
     if (msg.userId && Array.isArray(members) && members.length > 0) {
-      const foundMember = members.find((m) => {
-        const memberId = m.id || m.userId || m.user?.id;
-        return Number(memberId) === Number(msg.userId);
+      const match = members.find((m) => {
+        const memberUserId = m.userId || m.id || m.user?.id;
+        return Number(memberUserId) === Number(msg.userId);
       });
 
-      if (foundMember) {
-        return (
-          foundMember.username ||
-          foundMember.name ||
-          foundMember.user?.username ||
-          foundMember.user?.name ||
-          (foundMember.email ? foundMember.email.split("@")[0] : null) ||
-          (foundMember.user?.email ? foundMember.user.email.split("@")[0] : null) ||
-          `Member #${msg.userId}`
-        );
+      if (match) {
+        // Try to get any name string out of member object
+        const realName =
+          match.username ||
+          match.name ||
+          match.fullName ||
+          match.user?.username ||
+          match.user?.name ||
+          (match.email ? match.email.split("@")[0] : null) ||
+          (match.user?.email ? match.user.email.split("@")[0] : null);
+
+        if (realName) return realName;
       }
     }
 
-    return `Member #${msg.userId}`;
+    // 3. Fallback: If it's current user's message
+    if (Number(msg.userId) === Number(currentUserId)) {
+      return currentUsername || "You";
+    }
+
+    return "User";
   };
 
   useEffect(() => {
@@ -293,7 +303,7 @@ function RoomPage() {
           if ((payload.targetTime !== undefined || payload.action)) {
             console.log("[POPUP TRIGGERED] Showing synchronization modal for time:", payload.targetTime);
             setPendingSync({
-              sender: packetSender || "Another Member",
+              sender: packetSender || "Another User",
               targetTime: Number(payload.targetTime)
             });
           }
