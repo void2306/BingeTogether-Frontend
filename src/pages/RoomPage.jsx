@@ -3,15 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import "./RoomPage.css";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-// 🔑 Config variables imported correctly
 import { API_BASE_URL, WS_BASE_URL } from "../config";
 
 function RoomPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
-  
-  // API Player & Automated Jump Blockers
+
   const playerRef = useRef(null); 
   const isSeekingRef = useRef(false);
   const ignoreNextSyncRef = useRef(false);
@@ -25,7 +23,6 @@ function RoomPage() {
   const [message, setMessage] = useState("");
   const stompClientRef = useRef(null);
 
-  // Dynamic Pop-up State
   const [pendingSync, setPendingSync] = useState(null);
 
   const scrollToBottom = () => {
@@ -43,7 +40,7 @@ function RoomPage() {
           "ngrok-skip-browser-warning": "69420"
         }
       });
-      
+
       if (!response.ok) throw new Error("Failed to load room details.");
       const data = await response.json();
       setRoom(data);
@@ -107,7 +104,7 @@ function RoomPage() {
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
-          sender: currentUsername,
+          senderName: currentUsername,
           message: message.trim(),
         }),
       });
@@ -169,18 +166,13 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // 🎯 REAL USERNAME RESOLVER FOR CHAT MESSAGES
   const getSenderName = (msg) => {
     if (!msg) return "User";
 
-    // 1. Check if backend/payload has explicit sender strings
-    if (msg.sender && typeof msg.sender === "string" && !msg.sender.startsWith("Member #")) {
-      return msg.sender;
-    }
-    if (msg.username && typeof msg.username === "string") return msg.username;
-    if (msg.senderName && typeof msg.senderName === "string") return msg.senderName;
+    if (msg.senderName && msg.senderName !== "User") return msg.senderName;
+    if (msg.sender && msg.sender !== "User") return msg.sender;
+    if (msg.username) return msg.username;
 
-    // 2. Search inside members array for matching userId
     if (msg.userId && Array.isArray(members) && members.length > 0) {
       const match = members.find((m) => {
         const memberUserId = m.userId || m.id || m.user?.id;
@@ -188,7 +180,6 @@ function RoomPage() {
       });
 
       if (match) {
-        // Try to get any name string out of member object
         const realName =
           match.username ||
           match.name ||
@@ -202,7 +193,6 @@ function RoomPage() {
       }
     }
 
-    // 3. Fallback: If it's current user's message
     if (Number(msg.userId) === Number(currentUserId)) {
       return currentUsername || "You";
     }
@@ -228,7 +218,6 @@ function RoomPage() {
     scrollToBottom();
   }, [messages]);
 
-  // YouTube API Player Initialization
   useEffect(() => {
     if (!room?.movieLink || !isYouTubeUrl(room.movieLink)) return;
 
@@ -277,7 +266,6 @@ function RoomPage() {
     };
   }, [room?.movieLink]);
 
-  // WebSocket Subscription Management
   useEffect(() => {
     console.log("[DEBUG] Connecting via SockJS to:", WS_BASE_URL);
 
@@ -321,14 +309,14 @@ function RoomPage() {
 
   const handleLocalSeek = (seconds) => {
     const client = stompClientRef.current;
-    
+
     if (client && client.connected) {
       const syncPayload = {
         sender: currentUsername, 
         action: "SEEK_REQUEST",
         targetTime: seconds, 
       };
-      
+
       console.log("[DEBUG] Pushing frame packet out:", syncPayload);
 
       client.publish({
@@ -369,7 +357,7 @@ function RoomPage() {
           <span style={{ fontSize: "14px", letterSpacing: "0.3px" }}>
             🎬 <strong>{pendingSync.sender}</strong> wants to switch to <strong>{formatTime(pendingSync.targetTime)}</strong>. Do you?
           </span>
-          
+
           <div style={{ display: "flex", gap: "10px" }}>
             <button onClick={() => handleApplySync(pendingSync.targetTime)} style={{ backgroundColor: "#2ed573", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
               Yes
@@ -412,7 +400,6 @@ function RoomPage() {
       </div>
 
       <div className="content-container">
-        {/* 🚀 DYNAMIC VIDEO PLAYER ENGINE */}
         <div className="video-section">
           {room && <p>{getRoomVibeMessage(room.roomType)}</p>}
           {room?.movieLink ? (
