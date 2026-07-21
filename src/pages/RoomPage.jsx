@@ -35,7 +35,6 @@ function RoomPage() {
   const fetchRoom = async () => {
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Bypassing Ngrok warning overlay via headers configuration
       const response = await fetch(`${API_BASE_URL}/room/${roomCode}`, {
         method: "GET",
         headers: {
@@ -57,7 +56,6 @@ function RoomPage() {
   const fetchMembers = async () => {
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Bypassing Ngrok warning overlay via headers configuration
       const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
         method: "GET",
         headers: {
@@ -77,7 +75,6 @@ function RoomPage() {
     if (!roomId) return;
     try {
       const token = localStorage.getItem("token");
-      // 🎯 Bypassing Ngrok warning overlay via headers configuration
       const response = await fetch(`${API_BASE_URL}/chat/${roomId}`, {
         method: "GET",
         headers: {
@@ -87,6 +84,7 @@ function RoomPage() {
         }
       });
       const data = await response.json();
+      console.log("[DEBUG] CHAT MESSAGES PAYLOAD:", data);
       setMessages(data);
     } catch (err) {
       console.error("Error fetching chat:", err);
@@ -169,6 +167,20 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
+  // 🎯 Helper: Dynamically Extracts Sender's Full Name or Username
+  const getSenderName = (msg) => {
+    if (!msg) return "Member";
+    return (
+      msg.sender ||
+      msg.username ||
+      msg.senderName ||
+      msg.user?.username ||
+      msg.user?.name ||
+      msg.user?.email ||
+      "Member"
+    );
+  };
+
   useEffect(() => {
     if (!roomCode) return;
     fetchRoom();
@@ -187,7 +199,7 @@ function RoomPage() {
     scrollToBottom();
   }, [messages]);
 
-  // YouTube API Player Initialization (Only runs if the URL is from YouTube)
+  // YouTube API Player Initialization
   useEffect(() => {
     if (!room?.movieLink || !isYouTubeUrl(room.movieLink)) return;
 
@@ -253,7 +265,6 @@ function RoomPage() {
           const payload = JSON.parse(message.body);
           console.log("[DEBUG] Received Sync Payload from WebSocket:", payload);
 
-          // 🎯 SAFE DYNAMIC FILTER MAPPING (Checks sender fallback keys cleanly)
           const packetSender = payload.sender || payload.username || payload.nickname;
 
           if (packetSender && packetSender.trim() === currentUsername.trim()) {
@@ -372,7 +383,7 @@ function RoomPage() {
       </div>
 
       <div className="content-container">
-        {/* 🚀 DYNAMIC VIDEO PLAYER ENGINE (YouTube iFrame vs HTML5 Video) */}
+        {/* 🚀 DYNAMIC VIDEO PLAYER ENGINE */}
         <div className="video-section">
           {room && <p>{getRoomVibeMessage(room.roomType)}</p>}
           {room?.movieLink ? (
@@ -415,9 +426,10 @@ function RoomPage() {
           <div className="messages-container">
             {Array.isArray(messages) &&
               messages.map((msg) => {
+                const senderDisplayName = getSenderName(msg);
                 const isMyMessage = 
                   msg.userId === currentUserId || 
-                  msg.sender === currentUsername;
+                  senderDisplayName.trim() === currentUsername.trim();
 
                 return (
                   <div
@@ -425,7 +437,7 @@ function RoomPage() {
                     className={`message-wrapper ${isMyMessage ? "own-wrapper" : "other-wrapper"}`}
                   >
                     <span className="message-username">
-                      {isMyMessage ? "You" : (msg.sender || "Member")}
+                      {isMyMessage ? "You" : senderDisplayName}
                     </span>
                     <div className={`message-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
                       <p>{msg.message}</p>
