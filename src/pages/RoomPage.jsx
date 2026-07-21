@@ -29,6 +29,27 @@ function RoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const fetchMembers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
+        }
+      });
+      const data = await response.json();
+      console.log("[DEBUG] MEMBERS LIST RAW DATA:", data);
+      setMembers(data);
+      return data;
+    } catch (err) {
+      console.error("Error fetching members:", err);
+      return [];
+    }
+  };
+
   const fetchRoom = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -44,32 +65,16 @@ function RoomPage() {
       if (!response.ok) throw new Error("Failed to load room details.");
       const data = await response.json();
       setRoom(data);
-      fetchMessages(data.id);
+      
+      // 🎯 FORCE SEQUENTIAL ORDER: Fetch members FIRST, then fetch messages
+      const activeMembers = await fetchMembers();
+      fetchMessages(data.id, activeMembers);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const fetchMembers = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "69420"
-        }
-      });
-      const data = await response.json();
-      console.log("[DEBUG] MEMBERS LIST RAW DATA:", data);
-      setMembers(data);
-    } catch (err) {
-      console.error("Error fetching members:", err);
-    }
-  };
-
-  const fetchMessages = async (roomId) => {
+  const fetchMessages = async (roomId, currentMembers) => {
     if (!roomId) return;
     try {
       const token = localStorage.getItem("token");
@@ -109,7 +114,7 @@ function RoomPage() {
         }),
       });
       setMessage("");
-      fetchMessages(room.id);
+      fetchMessages(room.id, members);
     } catch (err) {
       console.error("Message send failure:", err);
     }
@@ -166,10 +171,11 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
+  // 🎯 ROBUST NAME RESOLVER: Checks payload keys + live members list + localStorage fallback
   const getSenderName = (msg) => {
     if (!msg) return "User";
 
-    // 1. Valid non-null username from backend
+    // 1. Direct valid username property from backend payload
     if (msg.username && msg.username !== "null" && msg.username !== "User") {
       return msg.username;
     }
@@ -177,10 +183,11 @@ function RoomPage() {
       return msg.senderName;
     }
 
-    // 2. Lookup in room members array
-    if (msg.userId && Array.isArray(members) && members.length > 0) {
-      const match = members.find((m) => {
-        const idToCheck = m.userId || m.id || m.user?.id;
+    // 2. Search inside members array for matching userId
+    const memberList = members;
+    if (msg.userId && Array.isArray(memberList) && memberList.length > 0) {
+      const match = memberList.find((m) => {
+        const idToCheck = m.userId || m.id || m.user?.id || m.memberId;
         return Number(idToCheck) === Number(msg.userId);
       });
 
@@ -203,22 +210,22 @@ function RoomPage() {
       return currentUsername !== "You" ? currentUsername : "You";
     }
 
-    return "User";
+    // 4. Last resort clean label
+    return `User #${msg.userId}`;
   };
 
   useEffect(() => {
     if (!roomCode) return;
     fetchRoom();
-    fetchMembers();
   }, [roomCode]);
 
   useEffect(() => {
     if (!room?.id) return;
     const interval = setInterval(() => {
-      fetchMessages(room.id);
+      fetchMessages(room.id, members);
     }, 3000);
     return () => clearInterval(interval);
-  }, [room?.id]); 
+  }, [room?.id, members]); 
 
   useEffect(() => {
     scrollToBottom();
