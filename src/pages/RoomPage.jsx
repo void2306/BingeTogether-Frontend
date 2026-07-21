@@ -65,6 +65,7 @@ function RoomPage() {
         }
       });
       const data = await response.json();
+      console.log("[DEBUG] MEMBERS LIST:", data);
       setMembers(data);
     } catch (err) {
       console.error("Error fetching members:", err);
@@ -167,18 +168,28 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // 🎯 Helper: Dynamically Extracts Sender's Full Name or Username
+  // 🎯 Dynamic Name Resolver: Maps userId to members list or falls back gracefully
   const getSenderName = (msg) => {
-    if (!msg) return "Member";
-    return (
-      msg.sender ||
-      msg.username ||
-      msg.senderName ||
-      msg.user?.username ||
-      msg.user?.name ||
-      msg.user?.email ||
-      "Member"
-    );
+    if (!msg) return "User";
+
+    // 1. Check if direct string values are sent
+    if (msg.sender && typeof msg.sender === "string") return msg.sender;
+    if (msg.username && typeof msg.username === "string") return msg.username;
+    if (msg.senderName && typeof msg.senderName === "string") return msg.senderName;
+
+    // 2. Lookup in members array fetched from room
+    if (msg.userId && Array.isArray(members) && members.length > 0) {
+      const foundMember = members.find(
+        (m) => Number(m.id || m.userId) === Number(msg.userId)
+      );
+      if (foundMember) {
+        return foundMember.username || foundMember.name || foundMember.email?.split("@")[0];
+      }
+    }
+
+    // 3. Fallback
+    if (msg.userId) return `User #${msg.userId}`;
+    return "Member";
   };
 
   useEffect(() => {
@@ -426,10 +437,8 @@ function RoomPage() {
           <div className="messages-container">
             {Array.isArray(messages) &&
               messages.map((msg) => {
-                const senderDisplayName = getSenderName(msg);
-                const isMyMessage = 
-                  msg.userId === currentUserId || 
-                  senderDisplayName.trim() === currentUsername.trim();
+                const isMyMessage = Number(msg.userId) === Number(currentUserId);
+                const senderDisplayName = isMyMessage ? "You" : getSenderName(msg);
 
                 return (
                   <div
@@ -437,7 +446,7 @@ function RoomPage() {
                     className={`message-wrapper ${isMyMessage ? "own-wrapper" : "other-wrapper"}`}
                   >
                     <span className="message-username">
-                      {isMyMessage ? "You" : senderDisplayName}
+                      {senderDisplayName}
                     </span>
                     <div className={`message-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
                       <p>{msg.message}</p>
