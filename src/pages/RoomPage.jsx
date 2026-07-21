@@ -150,6 +150,11 @@ function RoomPage() {
     }
   };
 
+  const isYouTubeUrl = (url) => {
+    if (!url) return false;
+    return url.includes("youtube.com") || url.includes("youtu.be");
+  };
+
   const getYouTubeId = (url) => {
     if (!url) return "";
     const regex = /(?:youtube\.com.*v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]+)/;
@@ -182,8 +187,9 @@ function RoomPage() {
     scrollToBottom();
   }, [messages]);
 
+  // YouTube API Player Initialization (Only runs if the URL is from YouTube)
   useEffect(() => {
-    if (!room?.movieLink) return;
+    if (!room?.movieLink || !isYouTubeUrl(room.movieLink)) return;
 
     if (!window.YT) {
       const tag = document.createElement("script");
@@ -254,7 +260,7 @@ function RoomPage() {
             return; 
           }
 
-          if (playerRef.current && (payload.targetTime !== undefined || payload.action)) {
+          if ((payload.targetTime !== undefined || payload.action)) {
             console.log("[POPUP TRIGGERED] Showing synchronization modal for time:", payload.targetTime);
             setPendingSync({
               sender: packetSender || "Another Member",
@@ -294,6 +300,23 @@ function RoomPage() {
     }
   };
 
+  const handleApplySync = (targetTime) => {
+    if (isYouTubeUrl(room?.movieLink)) {
+      if (playerRef.current && typeof playerRef.current.seekTo === "function") {
+        isSeekingRef.current = true;
+        ignoreNextSyncRef.current = true;
+        playerRef.current.seekTo(targetTime, true);
+        setTimeout(() => { isSeekingRef.current = false; }, 1200);
+      }
+    } else {
+      const html5Player = document.getElementById("room-video-player");
+      if (html5Player) {
+        html5Player.currentTime = targetTime;
+      }
+    }
+    setPendingSync(null);
+  };
+
   return (
     <div className="room-container">
       {pendingSync && (
@@ -308,13 +331,7 @@ function RoomPage() {
           </span>
           
           <div style={{ display: "flex", gap: "10px" }}>
-            <button onClick={() => {
-              isSeekingRef.current = true;
-              ignoreNextSyncRef.current = true;
-              playerRef.current.seekTo(pendingSync.targetTime, true);
-              setPendingSync(null);
-              setTimeout(() => { isSeekingRef.current = false; }, 1200);
-            }} style={{ backgroundColor: "#2ed573", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
+            <button onClick={() => handleApplySync(pendingSync.targetTime)} style={{ backgroundColor: "#2ed573", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
               Yes
             </button>
             <button onClick={() => setPendingSync(null)} style={{ backgroundColor: "#ff4757", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
@@ -355,20 +372,38 @@ function RoomPage() {
       </div>
 
       <div className="content-container">
+        {/* 🚀 DYNAMIC VIDEO PLAYER ENGINE (YouTube iFrame vs HTML5 Video) */}
         <div className="video-section">
           {room && <p>{getRoomVibeMessage(room.roomType)}</p>}
           {room?.movieLink ? (
             <div style={{ borderRadius: "12px", overflow: "hidden", backgroundColor: "#000" }}>
-              <iframe
-                id="room-video-player"
-                width="100%"
-                height="400"
-                src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}?enablejsapi=1&origin=${window.location.origin}`}
-                title="YouTube Video"
-                frameBorder="0"
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-              />
+              {isYouTubeUrl(room.movieLink) ? (
+                <iframe
+                  id="room-video-player"
+                  width="100%"
+                  height="400"
+                  src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}?enablejsapi=1&origin=${window.location.origin}`}
+                  title="YouTube Video"
+                  frameBorder="0"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  id="room-video-player"
+                  controls
+                  autoPlay
+                  width="100%"
+                  height="400"
+                  style={{ objectFit: "contain", display: "block" }}
+                  src={room.movieLink}
+                  onSeeked={(e) => {
+                    handleLocalSeek(e.target.currentTime);
+                  }}
+                >
+                  Your browser does not support HTML5 video playback format.
+                </video>
+              )}
             </div>
           ) : (
             <p>No video available</p>
