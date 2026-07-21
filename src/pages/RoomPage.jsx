@@ -29,7 +29,8 @@ function RoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const fetchMembers = async () => {
+  // 🎯 Fetch Members API returning data directly to prevent state lag
+  const fetchMembersList = async () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE_URL}/room/${roomCode}/members`, {
@@ -41,7 +42,6 @@ function RoomPage() {
         }
       });
       const data = await response.json();
-      console.log("[DEBUG] MEMBERS LIST RAW DATA:", data);
       setMembers(data);
       return data;
     } catch (err) {
@@ -65,16 +65,16 @@ function RoomPage() {
       if (!response.ok) throw new Error("Failed to load room details.");
       const data = await response.json();
       setRoom(data);
-      
-      // 🎯 FORCE SEQUENTIAL ORDER: Fetch members FIRST, then fetch messages
-      const activeMembers = await fetchMembers();
-      fetchMessages(data.id, activeMembers);
+
+      // Fetch members first, then fetch messages using that fresh data
+      const freshMembers = await fetchMembersList();
+      fetchMessages(data.id, freshMembers);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const fetchMessages = async (roomId, currentMembers) => {
+  const fetchMessages = async (roomId, activeMembers = members) => {
     if (!roomId) return;
     try {
       const token = localStorage.getItem("token");
@@ -86,9 +86,40 @@ function RoomPage() {
           "ngrok-skip-browser-warning": "69420"
         }
       });
-      const data = await response.json();
-      console.log("[DEBUG] CHAT MESSAGES PAYLOAD:", data);
-      setMessages(data);
+      const rawMessages = await response.json();
+
+      // 🎯 Enrich messages with usernames immediately before setting state
+      const enrichedMessages = rawMessages.map((msg) => {
+        let name = msg.username || msg.senderName || msg.sender;
+
+        if (!name || name === "null" || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) {
+          // Look up in active members
+          const match = activeMembers.find((m) => {
+            const mId = m.userId || m.id || m.user?.id;
+            return Number(mId) === Number(msg.userId);
+          });
+
+          if (match) {
+            name =
+              match.username ||
+              match.name ||
+              match.user?.username ||
+              match.user?.name ||
+              (match.email ? match.email.split("@")[0] : null);
+          }
+        }
+
+        if (!name && Number(msg.userId) === Number(currentUserId)) {
+          name = currentUsername;
+        }
+
+        return {
+          ...msg,
+          displayName: name || (Number(msg.userId) === Number(currentUserId) ? "You" : `User #${msg.userId}`)
+        };
+      });
+
+      setMessages(enrichedMessages);
     } catch (err) {
       console.error("Error fetching chat:", err);
     } 
@@ -169,49 +200,6 @@ function RoomPage() {
     const minutes = Math.floor(timeInSeconds / 60);
     const seconds = Math.floor(timeInSeconds % 60);
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-  };
-
-  // 🎯 ROBUST NAME RESOLVER: Checks payload keys + live members list + localStorage fallback
-  const getSenderName = (msg) => {
-    if (!msg) return "User";
-
-    // 1. Direct valid username property from backend payload
-    if (msg.username && msg.username !== "null" && msg.username !== "User") {
-      return msg.username;
-    }
-    if (msg.senderName && msg.senderName !== "null" && msg.senderName !== "User") {
-      return msg.senderName;
-    }
-
-    // 2. Search inside members array for matching userId
-    const memberList = members;
-    if (msg.userId && Array.isArray(memberList) && memberList.length > 0) {
-      const match = memberList.find((m) => {
-        const idToCheck = m.userId || m.id || m.user?.id || m.memberId;
-        return Number(idToCheck) === Number(msg.userId);
-      });
-
-      if (match) {
-        const realName =
-          match.username ||
-          match.name ||
-          match.fullName ||
-          match.user?.username ||
-          match.user?.name ||
-          (match.email ? match.email.split("@")[0] : null) ||
-          (match.user?.email ? match.user.email.split("@")[0] : null);
-
-        if (realName) return realName;
-      }
-    }
-
-    // 3. Fallback for self
-    if (Number(msg.userId) === Number(currentUserId)) {
-      return currentUsername !== "You" ? currentUsername : "You";
-    }
-
-    // 4. Last resort clean label
-    return `User #${msg.userId}`;
   };
 
   useEffect(() => {
@@ -456,7 +444,6 @@ function RoomPage() {
             {Array.isArray(messages) &&
               messages.map((msg) => {
                 const isMyMessage = Number(msg.userId) === Number(currentUserId);
-                const senderDisplayName = isMyMessage ? "You" : getSenderName(msg);
 
                 return (
                   <div
@@ -464,7 +451,7 @@ function RoomPage() {
                     className={`message-wrapper ${isMyMessage ? "own-wrapper" : "other-wrapper"}`}
                   >
                     <span className="message-username">
-                      {senderDisplayName}
+                      {isMyMessage ? "You" : msg.displayName}
                     </span>
                     <div className={`message-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
                       <p>{msg.message}</p>
