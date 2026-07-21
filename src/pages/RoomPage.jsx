@@ -168,28 +168,36 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // 🎯 Dynamic Name Resolver: Maps userId to members list or falls back gracefully
+  // 🎯 Deep-Match Name Resolver for Room Members
   const getSenderName = (msg) => {
-    if (!msg) return "User";
+    if (!msg) return "Member";
 
-    // 1. Check if direct string values are sent
+    // 1. Check if direct sender string is present
     if (msg.sender && typeof msg.sender === "string") return msg.sender;
     if (msg.username && typeof msg.username === "string") return msg.username;
     if (msg.senderName && typeof msg.senderName === "string") return msg.senderName;
 
-    // 2. Lookup in members array fetched from room
+    // 2. Search inside fetched room members array
     if (msg.userId && Array.isArray(members) && members.length > 0) {
-      const foundMember = members.find(
-        (m) => Number(m.id || m.userId) === Number(msg.userId)
-      );
+      const foundMember = members.find((m) => {
+        const memberId = m.id || m.userId || m.user?.id;
+        return Number(memberId) === Number(msg.userId);
+      });
+
       if (foundMember) {
-        return foundMember.username || foundMember.name || foundMember.email?.split("@")[0];
+        return (
+          foundMember.username ||
+          foundMember.name ||
+          foundMember.user?.username ||
+          foundMember.user?.name ||
+          (foundMember.email ? foundMember.email.split("@")[0] : null) ||
+          (foundMember.user?.email ? foundMember.user.email.split("@")[0] : null) ||
+          `Member #${msg.userId}`
+        );
       }
     }
 
-    // 3. Fallback
-    if (msg.userId) return `User #${msg.userId}`;
-    return "Member";
+    return `Member #${msg.userId}`;
   };
 
   useEffect(() => {
