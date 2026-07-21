@@ -169,19 +169,19 @@ function RoomPage() {
   const getSenderName = (msg) => {
     if (!msg) return "User";
 
-    // 1. Direct username sent from backend
-    if (msg.username && msg.username !== "User" && msg.username !== "null") {
+    // 1. Valid non-null username from backend
+    if (msg.username && msg.username !== "null" && msg.username !== "User") {
       return msg.username;
     }
-    if (msg.senderName && msg.senderName !== "User" && msg.senderName !== "null") {
+    if (msg.senderName && msg.senderName !== "null" && msg.senderName !== "User") {
       return msg.senderName;
     }
 
     // 2. Lookup in room members array
     if (msg.userId && Array.isArray(members) && members.length > 0) {
       const match = members.find((m) => {
-        const memberUserId = m.userId || m.id || m.user?.id;
-        return Number(memberUserId) === Number(msg.userId);
+        const idToCheck = m.userId || m.id || m.user?.id;
+        return Number(idToCheck) === Number(msg.userId);
       });
 
       if (match) {
