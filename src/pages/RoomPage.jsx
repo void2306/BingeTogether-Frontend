@@ -104,7 +104,7 @@ function RoomPage() {
         body: JSON.stringify({
           roomId: room.id,
           userId: currentUserId,
-          senderName: currentUsername,
+          username: currentUsername,
           message: message.trim(),
         }),
       });
@@ -169,10 +169,15 @@ function RoomPage() {
   const getSenderName = (msg) => {
     if (!msg) return "User";
 
-    if (msg.senderName && msg.senderName !== "User") return msg.senderName;
-    if (msg.sender && msg.sender !== "User") return msg.sender;
-    if (msg.username) return msg.username;
+    // 1. Direct username sent from backend
+    if (msg.username && msg.username !== "User" && msg.username !== "null") {
+      return msg.username;
+    }
+    if (msg.senderName && msg.senderName !== "User" && msg.senderName !== "null") {
+      return msg.senderName;
+    }
 
+    // 2. Lookup in room members array
     if (msg.userId && Array.isArray(members) && members.length > 0) {
       const match = members.find((m) => {
         const memberUserId = m.userId || m.id || m.user?.id;
@@ -193,8 +198,9 @@ function RoomPage() {
       }
     }
 
+    // 3. Fallback for self
     if (Number(msg.userId) === Number(currentUserId)) {
-      return currentUsername || "You";
+      return currentUsername !== "You" ? currentUsername : "You";
     }
 
     return "User";
