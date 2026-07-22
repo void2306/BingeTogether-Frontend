@@ -333,16 +333,31 @@ function RoomPage() {
   };
 
   // Helper function to reliably resolve username
-  const resolveMemberName = (m, idx) => {
-    if (!m) return currentUsername;
-    const rawName = m.username || m.name || m.user?.username || m.user?.name;
-    
-    // If backend returns generic or blank string, or if we are the only member in array, return currentUsername
-    if (!rawName || rawName === "User" || rawName.startsWith("User #") || members.length === 1) {
-      return currentUsername;
-    }
-    return rawName;
-  };
+ const resolveMemberName = (m, idx) => {
+  if (!m) return `User #${idx + 1}`;
+
+  // 1. Check direct properties from backend DTO
+  const name = 
+    m.username || 
+    m.name || 
+    m.user?.username || 
+    m.user?.name || 
+    m.nickname ||
+    (m.email ? m.email.split("@")[0] : null);
+
+  if (name && name !== "User" && !name.startsWith("User #")) {
+    return name;
+  }
+
+  // 2. If it's specifically the current user's item
+  const mUserId = m.userId || m.id || m.user?.id;
+  if (Number(mUserId) === Number(currentUserId)) {
+    return currentUsername;
+  }
+
+  // 3. For distinct room members whose name is unresolvable, display User #ID
+  return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
+};
 
   return (
     <div className="room-container">
