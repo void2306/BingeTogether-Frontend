@@ -23,7 +23,6 @@ function HomePage() {
       setUsername(savedUsername);
     }
 
-    // Fetch actual rooms from backend API
     fetchExistingRooms(savedUserId);
   }, [navigate]);
 
@@ -42,11 +41,7 @@ function HomePage() {
 
       if (response.ok) {
         const data = await response.json();
-        if (Array.isArray(data)) {
-          setRecentRooms(data);
-        } else {
-          setRecentRooms([]);
-        }
+        setRecentRooms(Array.isArray(data) ? data : []);
       } else {
         setRecentRooms([]);
       }
@@ -68,11 +63,11 @@ function HomePage() {
 
   return (
     <div className="home-wrapper">
-      {/* Background Glow */}
-      <div className="bg-glow-orb orb-1"></div>
+      {/* 7. GitHub-style Faint Radial Ambient Glow */}
+      <div className="ambient-background"></div>
 
       <div className="home-container">
-        {/* 1. TOP NAVBAR */}
+        {/* Navbar */}
         <header className="home-navbar">
           <div className="navbar-brand">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -87,10 +82,10 @@ function HomePage() {
                 </linearGradient>
               </defs>
             </svg>
-            <h2>BingeTogether</h2>
+            {/* 5. Tiny Purple Glow on Brand Name */}
+            <h2 className="glowing-brand-title">BingeTogether</h2>
           </div>
 
-          {/* User Profile Chip */}
           <div className="user-profile-menu">
             <button className="profile-chip-glass" onClick={() => setShowDropdown(!showDropdown)}>
               <div className="avatar-circle">
@@ -110,24 +105,26 @@ function HomePage() {
           </div>
         </header>
 
-        {/* 2. HERO GREETING */}
+        {/* Hero Section */}
         <section className="hero-section">
           <div className="hero-text">
             <h1>
               Welcome back, {username}! <span className="waving-hand">👋</span>
             </h1>
-            <p>Ready for another amazing watch party?</p>
+            {/* 3. Product-like Welcome Line */}
+            <p>Create a room, invite your friends, and enjoy synchronized streaming together.</p>
           </div>
         </section>
 
-        {/* 3. PRIMARY ACTION CARDS */}
+        {/* Primary Cards */}
         <section className="primary-actions-grid">
+          {/* 4. Smooth Hover Animation Card */}
           <Link to="/create" className="premium-card create-card">
             <div className="card-left">
               <div className="card-icon-wrapper">🎬</div>
               <div className="card-details">
                 <h3>Create Room</h3>
-                <p>Create a new watch room and invite your friends</p>
+                <p>Create a watch room and invite friends</p>
               </div>
             </div>
             <div className="card-arrow-circle">+</div>
@@ -138,35 +135,34 @@ function HomePage() {
               <div className="card-icon-wrapper">👥</div>
               <div className="card-details">
                 <h3>Join Room</h3>
-                <p>Join an existing room with a room code</p>
+                <p>Join an existing room with a code</p>
               </div>
             </div>
             <div className="card-arrow-circle">→</div>
           </Link>
         </section>
 
-        {/* 4. RECENT ROOMS PANEL */}
+        {/* Recent Rooms Panel */}
         <section className="recent-rooms-panel">
           <div className="panel-header">
             <h3>Recent Rooms</h3>
           </div>
 
           {loadingRooms ? (
-            <div style={{ padding: "30px", textAlign: "center", color: "#8888a0" }}>
+            <div style={{ padding: "16px", textAlign: "center", color: "#8888a0" }}>
               Loading existing rooms...
             </div>
           ) : recentRooms.length === 0 ? (
-            /* EMPTY STATE WHEN NO ROOMS EXIST */
+            /* 6. Friendly Empty State Text */
             <div className="empty-rooms-state">
               <span className="empty-icon">🍿</span>
-              <h4>No existing rooms found</h4>
-              <p>Create your first watch room and invite your friends!</p>
+              <h4>No watch rooms yet.</h4>
+              <p>Create your first room and start watching together.</p>
               <button className="empty-create-btn" onClick={() => navigate("/create")}>
                 + Create Room
               </button>
             </div>
           ) : (
-            /* LIST OF EXISTING ROOMS */
             <div className="rooms-grid">
               {recentRooms.map((room) => (
                 <div key={room.id || room.roomCode} className="room-card-modern">
@@ -194,6 +190,32 @@ function HomePage() {
           )}
         </section>
 
+        {/* 2. Features Section (Completes the Page) */}
+        <section className="features-section">
+          <h3 className="section-title">Built for Binging Together</h3>
+          <div className="features-grid">
+            <div className="feature-card">
+              <span className="feature-icon">🎬</span>
+              <h4>Sync Playback</h4>
+              <p>Play, pause, and seek in perfect frame synchronization.</p>
+            </div>
+            <div className="feature-card">
+              <span className="feature-icon">💬</span>
+              <h4>Live Chat</h4>
+              <p>Real-time reactions and room chat alongside video.</p>
+            </div>
+            <div className="feature-card">
+              <span className="feature-icon">👑</span>
+              <h4>Host Controls</h4>
+              <p>Host manages playback permissions and guest access.</p>
+            </div>
+            <div className="feature-card">
+              <span className="feature-icon">⚡</span>
+              <h4>Real Time</h4>
+              <p>Ultra-low latency web socket syncing engine.</p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

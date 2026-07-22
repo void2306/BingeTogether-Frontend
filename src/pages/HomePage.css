@@ -10,35 +10,27 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   display: flex;
   justify-content: center;
-  padding: 30px 24px;
+  padding: 36px 24px 60px 24px;
   box-sizing: border-box;
   position: relative;
   overflow-x: hidden;
 }
 
-/* Subtle Glowing Background Orb */
-.bg-glow-orb {
+/* 7. Faint Ambient Radial Gradient Background (GitHub Style) */
+.ambient-background {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(120px);
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, rgba(124, 93, 250, 0.08) 0%, rgba(15, 15, 26, 0.0) 70%);
   pointer-events: none;
-  opacity: 0.12;
 }
 
-.orb-1 {
-  width: 450px;
-  height: 450px;
-  background: #7c5dfa;
-  top: -50px;
-  left: 10%;
-}
-
+/* 1. Increased Container Width to ~80% (max 1150px) */
 .home-container {
   width: 100%;
-  max-width: 880px;
+  max-width: 1150px;
   display: flex;
   flex-direction: column;
-  gap: 22px; /* Tightened container spacing */
+  gap: 28px;
   z-index: 2;
   animation: fadeIn 0.4s ease-out;
 }
@@ -48,7 +40,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 1. Navbar */
+/* Navbar */
 .home-navbar {
   display: flex;
   justify-content: space-between;
@@ -61,15 +53,16 @@
   gap: 12px;
 }
 
-.navbar-brand h2 {
+/* 5. Subtle Invisible Purple Glow on Logo */
+.glowing-brand-title {
   font-size: 22px;
   font-weight: 800;
   margin: 0;
   color: #ffffff;
   letter-spacing: -0.5px;
+  text-shadow: 0 0 12px rgba(124, 93, 250, 0.35);
 }
 
-/* Glassmorphism Profile Chip */
 .user-profile-menu {
   position: relative;
 }
@@ -147,15 +140,15 @@
   background: rgba(255, 71, 87, 0.15);
 }
 
-/* 2. Hero Section */
+/* Hero Section */
 .hero-section {
   text-align: left;
 }
 
 .hero-text h1 {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 800;
-  margin: 0 0 4px 0;
+  margin: 0 0 6px 0;
   letter-spacing: -0.5px;
 }
 
@@ -182,11 +175,11 @@
   100% { transform: rotate(0deg); }
 }
 
-/* 3. Create & Join Cards */
+/* Create & Join Cards */
 .primary-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 20px;
 }
 
 @media (max-width: 650px) {
@@ -198,11 +191,13 @@
 .premium-card {
   text-decoration: none;
   border-radius: 18px;
-  padding: 20px 22px;
+  padding: 24px 26px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.25s ease;
+  cursor: pointer;
+  /* 4. Expensive Lift + Glow Hover Animation */
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
   box-shadow: 0 10px 25px rgba(0,0,0,0.3);
 }
 
@@ -212,9 +207,11 @@
   color: #fff;
 }
 
+/* 4. Hover effect: lift up, scale 1.02, increase shadow */
 .create-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 30px rgba(81, 48, 190, 0.45);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 18px 40px rgba(81, 48, 190, 0.55);
+  border-color: rgba(168, 85, 247, 0.6);
 }
 
 .join-card {
@@ -224,23 +221,24 @@
 }
 
 .join-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 30px rgba(30, 75, 189, 0.45);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 18px 40px rgba(30, 75, 189, 0.55);
+  border-color: rgba(59, 130, 246, 0.6);
 }
 
 .card-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .card-icon-wrapper {
-  font-size: 28px;
+  font-size: 32px;
 }
 
 .card-details h3 {
-  margin: 0 0 2px 0; /* Reduced margin under title */
-  font-size: 20px;
+  margin: 0 0 2px 0;
+  font-size: 21px;
   font-weight: 700;
   text-align: left;
 }
@@ -254,8 +252,8 @@
 }
 
 .card-arrow-circle {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.3);
   display: flex;
@@ -264,14 +262,19 @@
   font-size: 18px;
   font-weight: bold;
   flex-shrink: 0;
+  transition: transform 0.25s;
 }
 
-/* 4. Recent Rooms Panel (Tightened Padding & Height) */
+.premium-card:hover .card-arrow-circle {
+  transform: translateX(4px);
+}
+
+/* Recent Rooms Panel */
 .recent-rooms-panel {
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
-  padding: 16px 20px; /* Reduced vertical padding */
+  padding: 18px 22px;
 }
 
 .panel-header {
@@ -371,12 +374,12 @@
   color: #ffffff;
 }
 
-/* Compact Empty State */
+/* 6. Friendly Empty State */
 .empty-rooms-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 18px 16px; /* Reduced vertical space */
+  padding: 20px 16px;
   text-align: center;
 }
 
@@ -393,15 +396,15 @@
 
 .empty-rooms-state p {
   color: #8888a0;
-  font-size: 13px;
-  margin: 0 0 14px 0;
+  font-size: 13.5px;
+  margin: 0 0 16px 0;
 }
 
 .empty-create-btn {
   background: #7c5dfa;
   color: #fff;
   border: none;
-  padding: 8px 18px;
+  padding: 9px 20px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 13px;
@@ -411,4 +414,63 @@
 
 .empty-create-btn:hover {
   background: #6543f8;
+}
+
+/* 2. Features Section Below Recent Rooms */
+.features-section {
+  text-align: left;
+  margin-top: 6px;
+}
+
+.section-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 14px 0;
+  color: #ffffff;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 850px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.feature-card {
+  background: rgba(18, 18, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 18px 16px;
+  text-align: left;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 93, 250, 0.3);
+}
+
+.feature-icon {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.feature-card h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.feature-card p {
+  margin: 0;
+  font-size: 12px;
+  color: #8888a0;
+  line-height: 1.4;
 }
