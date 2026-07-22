@@ -13,7 +13,7 @@ function CreateRoomPage() {
   const [roomType, setRoomType] = useState("");
   const [movieLink, setMovieLink] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
-  const [activeTab, setActiveTab] = useState("link"); // 'link' or 'upload'
+  const [activeTab, setActiveTab] = useState(null);// 'link' or 'upload'
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
 
