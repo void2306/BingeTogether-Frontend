@@ -16,7 +16,7 @@
   overflow-x: hidden;
 }
 
-/* Subtle Glowing Background Orbs */
+/* Subtle Glowing Background Orb */
 .bg-glow-orb {
   position: absolute;
   border-radius: 50%;
@@ -26,24 +26,16 @@
 }
 
 .orb-1 {
-  width: 400px;
-  height: 400px;
+  width: 450px;
+  height: 450px;
   background: #7c5dfa;
   top: -50px;
   left: 10%;
 }
 
-.orb-2 {
-  width: 350px;
-  height: 350px;
-  background: #2563eb;
-  bottom: 50px;
-  right: 10%;
-}
-
 .home-container {
   width: 100%;
-  max-width: 960px;
+  max-width: 900px;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -190,89 +182,7 @@
   100% { transform: rotate(0deg); }
 }
 
-/* 3. Live Activity Banner */
-.live-activity-banner {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 12px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  font-size: 13px;
-  color: #a0a0c0;
-}
-
-.live-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.live-item strong {
-  color: #ffffff;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  background: #2ed573;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #2ed573;
-}
-
-.banner-divider {
-  opacity: 0.3;
-}
-
-/* 4. Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.stat-card {
-  background: rgba(18, 18, 28, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  transition: transform 0.25s, border-color 0.25s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(124, 93, 250, 0.3);
-}
-
-.stat-icon {
-  font-size: 24px;
-}
-
-.stat-info h4 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.stat-info p {
-  margin: 2px 0 0 0;
-  font-size: 12px;
-  color: #8888a0;
-}
-
-/* 5. Create & Join Cards */
+/* 3. Create & Join Cards */
 .primary-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -338,6 +248,7 @@
   margin: 0;
   font-size: 13px;
   opacity: 0.8;
+  text-align: left;
 }
 
 .card-arrow-circle {
@@ -357,63 +268,7 @@
   transform: translateX(4px);
 }
 
-/* 6. Quick Actions Section */
-.section-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 14px 0;
-  text-align: left;
-}
-
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 768px) {
-  .quick-actions-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.quick-card {
-  background: rgba(18, 18, 28, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  text-align: left;
-}
-
-.quick-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(124, 93, 250, 0.4);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-}
-
-.quick-icon {
-  font-size: 22px;
-}
-
-.quick-info h4 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.quick-info p {
-  margin: 2px 0 0 0;
-  font-size: 11px;
-  color: #8888a0;
-}
-
-/* 7. Recent Rooms Section */
+/* 4. Recent Rooms Panel */
 .recent-rooms-panel {
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -432,13 +287,6 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-}
-
-.view-all-link {
-  color: #7c5dfa;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .rooms-grid {
@@ -527,12 +375,12 @@
   color: #ffffff;
 }
 
-/* Empty State */
+/* Empty State Styling */
 .empty-rooms-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 20px;
+  padding: 36px 20px;
   text-align: center;
 }
 
@@ -561,9 +409,14 @@
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s;
 }
 
-/* 8. Premium Logout Button */
+.empty-create-btn:hover {
+  background: #6543f8;
+}
+
+/* 5. Premium Logout Button */
 .premium-logout-btn {
   width: 100%;
   background: transparent;

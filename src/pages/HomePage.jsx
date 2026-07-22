@@ -1,18 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 import "./HomePage.css";
 
 function HomePage() {
   const [username, setUsername] = useState("User");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [recentRooms, setRecentRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
   const navigate = useNavigate();
-
-  // Mock list of recent rooms (set to [] to test Empty State!)
-  const [recentRooms, setRecentRooms] = useState([
-    { id: 1, name: "Chill Stream", type: "Solo", members: "3 Members", time: "2h ago", code: "CHILL6382" },
-    { id: 2, name: "Marvel Night", type: "Movie", members: "5 Members", time: "5h ago", code: "MARVEL901" },
-    { id: 3, name: "Anime Adda", type: "Solo", members: "2 Members", time: "1d ago", code: "ANIME441" },
-  ]);
 
   useEffect(() => {
     const savedUsername = localStorage.getItem("username");
@@ -26,7 +22,41 @@ function HomePage() {
     if (savedUsername) {
       setUsername(savedUsername);
     }
+
+    // Fetch actual rooms from backend API
+    fetchExistingRooms(savedUserId);
   }, [navigate]);
+
+  const fetchExistingRooms = async (userId) => {
+    setLoadingRooms(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/room/user/${userId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setRecentRooms(data);
+        } else {
+          setRecentRooms([]);
+        }
+      } else {
+        setRecentRooms([]);
+      }
+    } catch (err) {
+      console.error("Error fetching rooms:", err);
+      setRecentRooms([]);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("userId");
@@ -38,9 +68,8 @@ function HomePage() {
 
   return (
     <div className="home-wrapper">
-      {/* Subtle Background Glow Orbs */}
+      {/* Background Glow */}
       <div className="bg-glow-orb orb-1"></div>
-      <div className="bg-glow-orb orb-2"></div>
 
       <div className="home-container">
         {/* 1. TOP NAVBAR */}
@@ -61,7 +90,7 @@ function HomePage() {
             <h2>BingeTogether</h2>
           </div>
 
-          {/* Glassmorphism Profile Chip */}
+          {/* User Profile Chip */}
           <div className="user-profile-menu">
             <button className="profile-chip-glass" onClick={() => setShowDropdown(!showDropdown)}>
               <div className="avatar-circle">
@@ -81,7 +110,7 @@ function HomePage() {
           </div>
         </header>
 
-        {/* 2. HERO SECTION */}
+        {/* 2. HERO GREETING */}
         <section className="hero-section">
           <div className="hero-text">
             <h1>
@@ -91,62 +120,14 @@ function HomePage() {
           </div>
         </section>
 
-        {/* 3. LIVE ACTIVITY BANNER */}
-        <div className="live-activity-banner">
-          <div className="live-item">
-            <span className="live-dot"></span>
-            <strong>12</strong> Active Rooms
-          </div>
-          <div className="banner-divider">•</div>
-          <div className="live-item">
-            👥 <strong>48</strong> Users Online
-          </div>
-          <div className="banner-divider">•</div>
-          <div className="live-item">
-            🎬 <strong>6</strong> Watch Parties Running
-          </div>
-        </div>
-
-        {/* 4. DASHBOARD STATS */}
-        <section className="stats-grid">
-          <div className="stat-card">
-            <span className="stat-icon">🍿</span>
-            <div className="stat-info">
-              <h4>14</h4>
-              <p>Rooms Created</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <span className="stat-icon">⏱️</span>
-            <div className="stat-info">
-              <h4>38h</h4>
-              <p>Hours Watched</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <span className="stat-icon">👥</span>
-            <div className="stat-info">
-              <h4>26</h4>
-              <p>Friends Joined</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <span className="stat-icon">🎬</span>
-            <div className="stat-info">
-              <h4>19</h4>
-              <p>Movies Synced</p>
-            </div>
-          </div>
-        </section>
-
-        {/* 5. CREATE & JOIN CARDS */}
+        {/* 3. PRIMARY ACTION CARDS */}
         <section className="primary-actions-grid">
           <Link to="/create" className="premium-card create-card">
             <div className="card-left">
               <div className="card-icon-wrapper">🎬</div>
               <div className="card-details">
                 <h3>Create Room</h3>
-                <p>Start a new room and invite your squad</p>
+                <p>Create a new watch room and invite your friends</p>
               </div>
             </div>
             <div className="card-arrow-circle">+</div>
@@ -157,86 +138,53 @@ function HomePage() {
               <div className="card-icon-wrapper">👥</div>
               <div className="card-details">
                 <h3>Join Room</h3>
-                <p>Enter with a room code instantly</p>
+                <p>Join an existing room with a room code</p>
               </div>
             </div>
             <div className="card-arrow-circle">→</div>
           </Link>
         </section>
 
-        {/* 6. QUICK ACTION SECTION */}
-        <section className="quick-actions-section">
-          <h3 className="section-title">Quick Actions</h3>
-          <div className="quick-actions-grid">
-            <div className="quick-card" onClick={() => alert("Watch History coming soon!")}>
-              <span className="quick-icon">🍿</span>
-              <div className="quick-info">
-                <h4>Watch History</h4>
-                <p>View past movies watched</p>
-              </div>
-            </div>
-
-            <div className="quick-card" onClick={() => alert("Friends feature coming soon!")}>
-              <span className="quick-icon">👥</span>
-              <div className="quick-info">
-                <h4>Friends</h4>
-                <p>See who is online</p>
-              </div>
-            </div>
-
-            <div className="quick-card" onClick={() => alert("Favorites coming soon!")}>
-              <span className="quick-icon">⭐</span>
-              <div className="quick-info">
-                <h4>Favorites</h4>
-                <p>Saved movies & videos</p>
-              </div>
-            </div>
-
-            <div className="quick-card" onClick={() => alert("Settings coming soon!")}>
-              <span className="quick-icon">⚙️</span>
-              <div className="quick-info">
-                <h4>Settings</h4>
-                <p>Account & preferences</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 7. RECENT ROOMS PANEL */}
+        {/* 4. RECENT ROOMS PANEL */}
         <section className="recent-rooms-panel">
           <div className="panel-header">
             <h3>Recent Rooms</h3>
-            {recentRooms.length > 0 && <span className="view-all-link">View all →</span>}
           </div>
 
-          {recentRooms.length === 0 ? (
-            /* EMPTY STATE */
+          {loadingRooms ? (
+            <div style={{ padding: "30px", textAlign: "center", color: "#8888a0" }}>
+              Loading existing rooms...
+            </div>
+          ) : recentRooms.length === 0 ? (
+            /* EMPTY STATE WHEN NO ROOMS EXIST */
             <div className="empty-rooms-state">
               <span className="empty-icon">🍿</span>
-              <h4>No watch rooms yet</h4>
-              <p>Create your first room and invite your friends!</p>
+              <h4>No existing rooms found</h4>
+              <p>Create your first watch room and invite your friends!</p>
               <button className="empty-create-btn" onClick={() => navigate("/create")}>
                 + Create Room
               </button>
             </div>
           ) : (
-            /* ROOM LIST CARDS */
+            /* LIST OF EXISTING ROOMS */
             <div className="rooms-grid">
               {recentRooms.map((room) => (
-                <div key={room.id} className="room-card-modern">
+                <div key={room.id || room.roomCode} className="room-card-modern">
                   <div className="room-card-left">
                     <span className="room-card-icon">🎬</span>
                     <div className="room-card-info">
                       <div className="title-row">
-                        <h4>{room.name}</h4>
-                        <span className="room-type-badge">{room.type}</span>
+                        <h4>{room.roomName || room.name}</h4>
+                        <span className="room-type-badge">{room.roomType || "Watch"}</span>
                       </div>
-                      <span className="room-card-meta">👥 {room.members} • {room.time}</span>
+                      <span className="room-card-meta">
+                        Code: <strong>{room.roomCode}</strong>
+                      </span>
                     </div>
                   </div>
                   <button 
                     className="rejoin-btn"
-                    onClick={() => navigate(`/room/${room.code.toLowerCase()}`)}
+                    onClick={() => navigate(`/room/${room.roomCode}`)}
                   >
                     Rejoin →
                   </button>
@@ -246,7 +194,7 @@ function HomePage() {
           )}
         </section>
 
-        {/* 8. PREMIUM OUTLINED LOGOUT BUTTON */}
+        {/* 5. LOGOUT BUTTON */}
         <button className="premium-logout-btn" onClick={handleLogout}>
           Log Out
         </button>
