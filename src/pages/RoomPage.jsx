@@ -375,9 +375,9 @@ function RoomPage() {
         <div className="nav-right-group">
           <div className="avatar-stack">
             {members.slice(0, 3).map((m, idx) => (
-              <div key={idx} className="stack-avatar" title={m.username || m.name}>
-                {(m.username || m.name || "U").charAt(0).toUpperCase()}
-              </div>
+             <div key={idx} className="stack-avatar" title={m.username || m.name || currentUsername}>
+  {(m.username || m.name || (Number(m.userId) === Number(currentUserId) ? currentUsername : "U")).charAt(0).toUpperCase()}
+</div>
             ))}
             {members.length > 3 && (
               <div className="stack-avatar extra">+{members.length - 3}</div>
@@ -436,7 +436,12 @@ function RoomPage() {
             <div className="members-chips-grid">
               {members.length > 0 ? (
                 members.map((member, i) => {
-                  const mName = member.username || member.name || member.user?.username || `User #${member.userId || i}`;
+                const mName = 
+  member.username || 
+  member.name || 
+  member.user?.username || 
+  (Number(member.userId) === Number(currentUserId) ? currentUsername : null) || 
+  `User #${member.userId || i}`;
                   const isHost = i === 0;
 
                   return (
