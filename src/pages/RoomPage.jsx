@@ -22,6 +22,9 @@ function RoomPage() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
+  
+  // 🎯 Map of userId -> actual username learned from active session & chats
+  const [userMap, setUserMap] = useState({});
   const stompClientRef = useRef(null);
 
   const [pendingSync, setPendingSync] = useState(null);
@@ -44,6 +47,18 @@ function RoomPage() {
       const data = await response.json();
       const memberArray = Array.isArray(data) ? data : [];
       setMembers(memberArray);
+
+      // Dynamically extract and store any usernames found in member objects
+      const newMap = {};
+      memberArray.forEach((m) => {
+        const mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
+        const mName = m?.username || m?.name || m?.user?.username || m?.user?.name;
+        if (mId && mName && mName !== "User") {
+          newMap[Number(mId)] = mName;
+        }
+      });
+      setUserMap((prev) => ({ ...prev, ...newMap }));
+
       return memberArray;
     } catch (err) {
       console.error("Error fetching members:", err);
@@ -88,22 +103,22 @@ function RoomPage() {
       });
       const rawMessages = await response.json();
 
+      const newMap = {};
       const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
-        if (!name || name === "null" || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) {
+        if (msg.userId && name && name !== "User" && !name.startsWith("User #")) {
+          newMap[Number(msg.userId)] = name;
+        }
+
+        if (!name || name === "null" || name === "User" || name.startsWith("User #")) {
           const match = activeMembers.find((m) => {
             const mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
             return Number(mId) === Number(msg.userId);
           });
 
           if (match) {
-            name =
-              match.username ||
-              match.name ||
-              match.user?.username ||
-              match.user?.name ||
-              (match.email ? match.email.split("@")[0] : null);
+            name = match.username || match.name || match.user?.username || match.user?.name;
           }
         }
 
@@ -113,9 +128,13 @@ function RoomPage() {
 
         return {
           ...msg,
-          displayName: name || (Number(msg.userId) === Number(currentUserId) ? "You" : `User #${msg.userId}`)
+          displayName: name || userMap[Number(msg.userId)] || `User #${msg.userId}`
         };
       });
+
+      if (Object.keys(newMap).length > 0) {
+        setUserMap((prev) => ({ ...prev, ...newMap }));
+      }
 
       setMessages(enrichedMessages);
     } catch (err) {
@@ -333,7 +352,7 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Accurately resolve member names without duplicate self-naming
+  // 🎯 Pure Dynamic Resolution (NO hardcodes)
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? currentUsername : `Member #${idx + 1}`;
 
@@ -348,7 +367,17 @@ function RoomPage() {
       }
     }
 
-    // 2. Extract explicit username string if backend supplied it
+    // 2. Check if this is current logged in user in this browser
+    if (mUserId && Number(mUserId) === Number(currentUserId)) {
+      return currentUsername;
+    }
+
+    // 3. Check dynamic userMap learned from chats or member payloads
+    if (mUserId && userMap[Number(mUserId)]) {
+      return userMap[Number(mUserId)];
+    }
+
+    // 4. Check explicit properties on the member object itself
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -362,17 +391,11 @@ function RoomPage() {
         (m.email ? m.email.split("@")[0] : null);
     }
 
-    // 3. If this specific member ID matches the current logged-in browser session
-    if (mUserId && Number(mUserId) === Number(currentUserId)) {
-      return currentUsername;
-    }
-
-    // 4. If backend provided a real username string for another user
     if (rawName && rawName !== "null" && rawName !== "User" && !rawName.startsWith("User #") && !rawName.startsWith("Member #")) {
       return rawName;
     }
 
-    // 5. Fallback for other users whose username string wasn't sent by backend
+    // 5. Fallback for distinct user IDs
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
