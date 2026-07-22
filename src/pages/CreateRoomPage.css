@@ -452,8 +452,10 @@
   background: #0d0d17;
   border: 1px dashed rgba(124, 93, 250, 0.5);
   border-radius: 14px;
-  padding: 16px;
+  padding: 14px 12px;
   margin-bottom: 20px;
+  overflow: hidden; /* Prevents overflow */
+  word-break: break-all; /* Breaks long room codes cleanly */
 }
 
 .code-label {
@@ -464,13 +466,14 @@
   letter-spacing: 1px;
   margin-bottom: 4px;
 }
-
 .code-value {
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: 4px;
+  font-size: 20px; /* Scaled down from 32px so long names fit comfortably */
+  font-weight: 800;
+  letter-spacing: 1px;
   color: #ffffff;
   text-shadow: 0 0 12px rgba(124, 93, 250, 0.5);
+  word-wrap: break-word;
+  white-space: normal;
 }
 
 .modal-actions-grid {

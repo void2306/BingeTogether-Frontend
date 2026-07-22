@@ -138,7 +138,6 @@ function CreateRoomPage() {
         return;
       }
 
-      // Show Success Modal instead of immediate redirect
       setCreatedRoom(room);
     } catch (error) {
       console.error("Error creating room:", error);
@@ -294,6 +293,7 @@ function CreateRoomPage() {
 
           {/* Source Options with OR Divider */}
           <div className="source-section-wrapper">
+            {/* Option A: YouTube Card */}
             <div
               className={`source-card ${activeTab === "link" ? "selected-glow" : ""}`}
               onClick={() => {
@@ -325,6 +325,7 @@ function CreateRoomPage() {
               <span>OR</span>
             </div>
 
+            {/* Option B: Local File Card */}
             <div
               className={`source-card ${activeTab === "upload" ? "selected-glow" : ""}`}
               onClick={() => {
