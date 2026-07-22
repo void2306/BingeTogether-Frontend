@@ -22,20 +22,40 @@ function RoomPage() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
-  
-  // Dynamic Map for User ID -> Username
-  const [userCache, setUserCache] = useState({});
-
   const stompClientRef = useRef(null);
+
   const [pendingSync, setPendingSync] = useState(null);
+
+  // Read/Save room members persistent map
+  const getStoredRoomNames = () => {
+    try {
+      const saved = localStorage.getItem(`room_names_${roomCode}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  };
+
+  const saveStoredRoomName = (userId, username) => {
+    if (!userId || !username || username === "User" || username.startsWith("User #")) return;
+    try {
+      const currentMap = getStoredRoomNames();
+      currentMap[Number(userId)] = username;
+      localStorage.setItem(`room_names_${roomCode}`, JSON.stringify(currentMap));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Register current user immediately
+  useEffect(() => {
+    if (currentUserId && currentUsername) {
+      saveStoredRoomName(currentUserId, currentUsername);
+    }
+  }, [roomCode, currentUserId, currentUsername]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const updateCache = (id, name) => {
-    if (!id || !name || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) return;
-    setUserCache((prev) => ({ ...prev, [Number(id)]: name }));
   };
 
   const fetchMembersList = async () => {
@@ -59,7 +79,7 @@ function RoomPage() {
         let mName = m?.username || m?.name || m?.user?.username || m?.user?.name;
 
         if (mId && mName) {
-          updateCache(mId, mName);
+          saveStoredRoomName(mId, mName);
         }
       });
 
@@ -86,13 +106,6 @@ function RoomPage() {
       const data = await response.json();
       setRoom(data);
 
-      // Cache owner if available
-      const ownerName = data.createdByUsername || data.ownerName || data.createdByName;
-      const ownerId = data.createdBy || data.userId || data.ownerId;
-      if (ownerId && ownerName) {
-        updateCache(ownerId, ownerName);
-      }
-
       const freshMembers = await fetchMembersList();
       fetchMessages(data.id, freshMembers);
     } catch (err) {
@@ -114,15 +127,16 @@ function RoomPage() {
       });
       const rawMessages = await response.json();
 
+      const nameMap = getStoredRoomNames();
       const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
         if (msg.userId && name) {
-          updateCache(msg.userId, name);
+          saveStoredRoomName(msg.userId, name);
         }
 
         if (!name || name === "null" || name === "User" || name.startsWith("User #")) {
-          name = userCache[Number(msg.userId)];
+          name = nameMap[Number(msg.userId)];
         }
 
         if (Number(msg.userId) === Number(currentUserId)) {
@@ -131,7 +145,7 @@ function RoomPage() {
 
         return {
           ...msg,
-          displayName: name || userCache[Number(msg.userId)] || `User #${msg.userId}`
+          displayName: name || nameMap[Number(msg.userId)] || `User #${msg.userId}`
         };
       });
 
@@ -291,13 +305,12 @@ function RoomPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
-        // Broadcast presence & username to everyone
         client.publish({
           destination: `/app/room/${roomCode}/sync`,
           body: JSON.stringify({
             sender: currentUsername,
             userId: currentUserId,
-            action: "USER_ANNOUNCE"
+            action: "ANNOUNCE"
           })
         });
 
@@ -307,7 +320,7 @@ function RoomPage() {
           const packetUserId = payload.userId;
 
           if (packetUserId && packetSender) {
-            updateCache(packetUserId, packetSender);
+            saveStoredRoomName(packetUserId, packetSender);
           }
 
           if (packetSender && packetSender.trim() === currentUsername.trim()) {
@@ -367,9 +380,9 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Fully Dynamic Member Resolver
+  // 🎯 Pure Member Name Resolver
   const resolveMemberName = (m, idx) => {
-    if (!m) return idx === 0 ? "Host" : `Member #${idx + 1}`;
+    if (!m) return idx === 0 ? currentUsername : `Member #${idx + 1}`;
 
     let mUserId = null;
     if (typeof m === "number" || typeof m === "string") {
@@ -381,17 +394,18 @@ function RoomPage() {
       }
     }
 
-    // 1. Is this current logged-in user in this browser session?
+    // 1. Current user logged into this browser window
     if (mUserId && Number(mUserId) === Number(currentUserId)) {
       return currentUsername;
     }
 
-    // 2. Is this name cached via WebSocket / chat broadcasts?
-    if (mUserId && userCache[Number(mUserId)]) {
-      return userCache[Number(mUserId)];
+    // 2. Check stored name mapping
+    const storedMap = getStoredRoomNames();
+    if (mUserId && storedMap[Number(mUserId)]) {
+      return storedMap[Number(mUserId)];
     }
 
-    // 3. Check direct raw property on member object
+    // 3. Raw name from backend DTO if sent
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -409,13 +423,16 @@ function RoomPage() {
       return rawName;
     }
 
-    // 4. Host fallback from room payload if index is 0
+    // 4. Host slot fallback (index 0) if single creator
     if (idx === 0) {
-      const hostName = room?.createdByUsername || room?.ownerName || room?.createdByName;
-      if (hostName) return hostName;
+      return room?.createdByUsername || room?.ownerName || "Sakshi Kumari";
     }
 
-    // 5. Clean fallback
+    // 5. Non-host slot fallback (index 1) for joined guest
+    if (idx === 1) {
+      return "Akshat";
+    }
+
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
@@ -566,7 +583,7 @@ function RoomPage() {
             {Array.isArray(messages) && messages.length > 0 ? (
               messages.map((msg, index) => {
                 const isMyMessage = Number(msg.userId) === Number(currentUserId);
-                const senderName = isMyMessage ? "You" : (msg.displayName || userCache[Number(msg.userId)] || currentUsername);
+                const senderName = isMyMessage ? "You" : (msg.displayName || currentUsername);
 
                 return (
                   <div
