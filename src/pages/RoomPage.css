@@ -508,3 +508,32 @@
 .sync-ignore-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
+
+@media (max-width: 900px) {
+  .room-container {
+    padding: 12px;
+  }
+
+  .room-navbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .nav-right-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .room-content-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .right-chat-column {
+    height: 450px;
+  }
+
+  #room-video-player {
+    height: 220px !important;
+  }
+}

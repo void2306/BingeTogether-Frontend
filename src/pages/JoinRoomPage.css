@@ -353,3 +353,17 @@
   color: #8888a0;
   line-height: 1.4;
 }
+
+@media (max-width: 768px) {
+  .join-card-wrapper {
+    max-width: 100%;
+  }
+
+  .join-room-card {
+    padding: 20px 16px;
+  }
+
+  .page-title-block h1 {
+    font-size: 24px;
+  }
+}

@@ -509,3 +509,22 @@
   background: #6543f8;
   box-shadow: 0 8px 20px rgba(124, 93, 250, 0.4);
 }
+
+@media (max-width: 768px) {
+  .create-room-card {
+    padding: 20px 16px;
+  }
+
+  .source-section-wrapper {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .or-divider {
+    margin: 4px 0;
+  }
+
+  .page-title-block h1 {
+    font-size: 24px;
+  }
+}
