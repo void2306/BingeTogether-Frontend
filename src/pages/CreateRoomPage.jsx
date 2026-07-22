@@ -17,12 +17,16 @@ function CreateRoomPage() {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Success Modal State
+  const [createdRoom, setCreatedRoom] = useState(null);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     const savedUsername = localStorage.getItem("username");
     if (savedUsername) setUsername(savedUsername);
   }, []);
 
-  // ☁️ Direct AWS S3 Presigned Upload Execution
+  // ☁️ AWS S3 Upload Execution
   const uploadVideoToS3 = async (file) => {
     const token = localStorage.getItem("token");
     setUploading(true);
@@ -62,7 +66,7 @@ function CreateRoomPage() {
       return fileUrl;
     } catch (err) {
       setUploading(false);
-      console.error("AWS S3 Upload Trace Error:", err);
+      console.error("AWS S3 Upload Error:", err);
       alert(`S3 Upload Error: ${err.message}`);
       return null;
     }
@@ -73,7 +77,7 @@ function CreateRoomPage() {
     const token = localStorage.getItem("token");
 
     if (!savedUserId || !token) {
-      alert("Your session has expired or you are not logged in. Redirecting to login...");
+      alert("Your session has expired or you are not logged in.");
       navigate("/login");
       return;
     }
@@ -125,21 +129,42 @@ function CreateRoomPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Server returned error status ${response.status}: ${errorText}`);
+        throw new Error(`Server error (${response.status}): ${errorText}`);
       }
 
       const room = await response.json();
       if (!room || !room.roomCode) {
-        alert("The server created a room, but failed to return a valid room tracking code.");
+        alert("Room created, but failed to retrieve room code.");
         return;
       }
 
-      navigate(`/room/${room.roomCode}`);
+      // Show Success Modal instead of immediate redirect
+      setCreatedRoom(room);
     } catch (error) {
-      console.error("### FULL SYSTEM ERROR TRACE ###", error);
-      alert(`Room creation aborted: ${error.message}`);
+      console.error("Error creating room:", error);
+      alert(`Room creation failed: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (createdRoom?.roomCode) {
+      navigator.clipboard.writeText(createdRoom.roomCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  const handleShareInvite = () => {
+    if (navigator.share && createdRoom?.roomCode) {
+      navigator.share({
+        title: "Join my BingeTogether Watch Party!",
+        text: `Hey! Join my watch party room using code: ${createdRoom.roomCode}`,
+        url: window.location.origin,
+      }).catch(() => {});
+    } else {
+      handleCopyCode();
     }
   };
 
@@ -152,12 +177,44 @@ function CreateRoomPage() {
     <div className="create-room-wrapper">
       <div className="ambient-background"></div>
 
+      {/* SUCCESS MODAL */}
+      {createdRoom && (
+        <div className="room-modal-backdrop">
+          <div className="room-modal-card">
+            <div className="modal-header-icon">🎉</div>
+            <h2>Room Created Successfully!</h2>
+            <p className="modal-room-title">{createdRoom.roomName || roomName}</p>
+
+            <div className="code-display-box">
+              <span className="code-label">ROOM CODE</span>
+              <div className="code-value">{createdRoom.roomCode}</div>
+            </div>
+
+            <div className="modal-actions-grid">
+              <button className="modal-btn secondary" onClick={handleCopyCode}>
+                {copied ? "✓ Copied!" : "📋 Copy Code"}
+              </button>
+              <button className="modal-btn secondary" onClick={handleShareInvite}>
+                🔗 Share Invite
+              </button>
+            </div>
+
+            <button
+              className="modal-btn primary-enter"
+              onClick={() => navigate(`/room/${createdRoom.roomCode}`)}
+            >
+              Enter Room →
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="create-room-container">
         {/* Top Navbar */}
         <header className="create-navbar">
           <div className="navbar-left">
-            <button className="back-arrow-btn" onClick={() => navigate("/")}>
-              ←
+            <button className="back-home-btn" onClick={() => navigate("/")}>
+              ← Home
             </button>
 
             <div className="navbar-brand">
@@ -199,7 +256,8 @@ function CreateRoomPage() {
         {/* Page Header */}
         <div className="page-title-block">
           <h1>Create a Watch Room</h1>
-          <p>Set up your room and invite your friends.</p>
+          <p className="subtitle">Create a room, invite your friends, and watch in perfect sync.</p>
+          <span className="sync-note-badge">⚡ Every playback action is synchronized for everyone.</span>
         </div>
 
         {/* Main Form Card */}
@@ -209,7 +267,7 @@ function CreateRoomPage() {
             <label>Room Name</label>
             <input
               type="text"
-              placeholder="e.g. Chill Stream"
+              placeholder="e.g. Movie Night 🍿"
               value={roomName}
               onChange={(e) => setRoomName(e.target.value)}
               disabled={loading || uploading}
@@ -226,19 +284,18 @@ function CreateRoomPage() {
                 disabled={loading || uploading}
               >
                 <option value="">Select Room Type</option>
-                <option value="solo">Solo</option>
-                <option value="couple">Couple</option>
-                <option value="group">Group</option>
+                <option value="solo">🍿 Solo Room</option>
+                <option value="couple">❤️ Couple Room</option>
+                <option value="group">👥 Group Room</option>
               </select>
               <span className="select-chevron">⌄</span>
             </div>
           </div>
 
-          {/* Dual Source Option Cards */}
-          <div className="source-options-grid">
-            {/* Option A: Link Card */}
+          {/* Source Options with OR Divider */}
+          <div className="source-section-wrapper">
             <div
-              className={`source-card ${activeTab === "link" ? "active" : ""}`}
+              className={`source-card ${activeTab === "link" ? "selected-glow" : ""}`}
               onClick={() => {
                 setActiveTab("link");
                 setSelectedFile(null);
@@ -247,13 +304,13 @@ function CreateRoomPage() {
               <div className="source-card-header">
                 <span className="source-icon">🔗</span>
                 <div>
-                  <h4>Paste YouTube / Video Link</h4>
-                  <p>Add any YouTube or video link</p>
+                  <h4>YouTube Link</h4>
+                  <p>Paste any YouTube URL or video link</p>
                 </div>
               </div>
               <input
                 type="text"
-                placeholder="https://youtu.be/abc123..."
+                placeholder="https://youtu.be/..."
                 value={movieLink}
                 onChange={(e) => {
                   setMovieLink(e.target.value);
@@ -264,19 +321,22 @@ function CreateRoomPage() {
               />
             </div>
 
-            {/* Option B: Upload MP4 Card */}
+            <div className="or-divider">
+              <span>OR</span>
+            </div>
+
             <div
-              className={`source-card ${activeTab === "upload" ? "active" : ""}`}
+              className={`source-card ${activeTab === "upload" ? "selected-glow" : ""}`}
               onClick={() => {
                 setActiveTab("upload");
                 setMovieLink("");
               }}
             >
               <div className="source-card-header">
-                <span className="source-icon">📁</span>
+                <span className="source-icon">📂</span>
                 <div>
                   <h4>Upload MP4 File</h4>
-                  <p>Upload your MP4 file directly</p>
+                  <p>Upload local video file directly</p>
                 </div>
               </div>
 
@@ -296,28 +356,30 @@ function CreateRoomPage() {
                 />
                 <span className="cloud-icon">☁️</span>
                 <span className="dropzone-text">
-                  {selectedFile ? selectedFile.name : "Click to upload or drag and drop"}
+                  {selectedFile ? selectedFile.name : "Drag & Drop your movie here or Click to Browse"}
                 </span>
                 <span className="dropzone-sub">
                   {selectedFile
                     ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`
-                    : "MP4 file only"}
+                    : "Supports MP4 files only"}
                 </span>
               </label>
             </div>
           </div>
 
-          {/* Submit Action Button */}
+          {/* Submit Button */}
           <button
             className="submit-create-btn"
             onClick={createRoom}
             disabled={loading || uploading}
           >
-            {uploading
-              ? "Uploading MP4 to AWS S3..."
-              : loading
-              ? "Creating Room..."
-              : "Create Room"}
+            {uploading ? (
+              <span className="popcorn-loader">🍿 Uploading MP4 to AWS S3...</span>
+            ) : loading ? (
+              <span className="popcorn-loader">🍿 Creating your watch room...</span>
+            ) : (
+              "🎬 Create & Continue →"
+            )}
           </button>
 
           <p className="terms-disclaimer">

@@ -1,5 +1,5 @@
 /* =========================================================
-   BINGETOGETHER CREATE ROOM STYLES (EXACT MATCH)
+   BINGETOGETHER CREATE ROOM PAGE STYLES
    ========================================================= */
 
 .create-room-wrapper {
@@ -25,20 +25,20 @@
 
 .create-room-container {
   width: 100%;
-  max-width: 900px;
+  max-width: 880px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px; /* Tighter layout gap */
   z-index: 2;
-  animation: fadeIn 0.4s ease-out;
+  animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Navbar */
+/* Navbar & Centered Logo */
 .create-navbar {
   display: flex;
   justify-content: space-between;
@@ -48,32 +48,30 @@
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px; /* Pulled logo closer */
 }
 
-.back-arrow-btn {
+.back-home-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #fff;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  font-size: 18px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
-.back-arrow-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.back-home-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(124, 93, 250, 0.4);
 }
 
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .brand-title {
@@ -150,23 +148,34 @@
   cursor: pointer;
 }
 
-/* Page Header */
+/* Header & Note */
 .page-title-block {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 4px;
 }
 
 .page-title-block h1 {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 800;
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
   letter-spacing: -0.5px;
 }
 
-.page-title-block p {
-  color: #8888a0;
-  font-size: 15px;
-  margin: 0;
+.subtitle {
+  color: #a0a0c0;
+  font-size: 14.5px;
+  margin: 0 0 8px 0;
+}
+
+.sync-note-badge {
+  display: inline-block;
+  background: rgba(124, 93, 250, 0.1);
+  border: 1px solid rgba(124, 93, 250, 0.25);
+  color: #a885ff;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 500;
 }
 
 /* Card Container */
@@ -174,23 +183,23 @@
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 20px;
-  padding: 32px;
+  padding: 26px 30px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   text-align: left;
 }
 
 .input-group label {
   color: #d1d1e0;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -200,7 +209,7 @@
   background: #10101a;
   border: 1px solid #28283d;
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 13px 16px;
   color: #ffffff;
   font-size: 14px;
   outline: none;
@@ -231,41 +240,52 @@
   pointer-events: none;
 }
 
-/* Source Options Grid */
-.source-options-grid {
+/* Source Section with OR Divider */
+.source-section-wrapper {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
   margin-top: 4px;
 }
 
-@media (max-width: 700px) {
-  .source-options-grid {
+@media (max-width: 750px) {
+  .source-section-wrapper {
     grid-template-columns: 1fr;
   }
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #616182;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .source-card {
   background: #10101a;
   border: 1px solid #28283d;
   border-radius: 16px;
-  padding: 20px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   cursor: pointer;
   transition: all 0.25s ease;
   text-align: left;
 }
 
 .source-card:hover {
-  border-color: rgba(124, 93, 250, 0.5);
+  border-color: rgba(124, 93, 250, 0.4);
 }
 
-.source-card.active {
-  border-color: #5640e8;
-  background: rgba(86, 64, 232, 0.05);
-  box-shadow: 0 0 16px rgba(86, 64, 232, 0.2);
+/* Active Purple Glow Ring */
+.source-card.selected-glow {
+  border-color: #7c5dfa;
+  box-shadow: 0 0 20px rgba(124, 93, 250, 0.35);
+  background: rgba(124, 93, 250, 0.05);
 }
 
 .source-card-header {
@@ -275,11 +295,11 @@
 }
 
 .source-icon {
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .source-card-header h4 {
-  margin: 0 0 4px 0;
+  margin: 0 0 3px 0;
   font-size: 15px;
   font-weight: 700;
   color: #fff;
@@ -303,15 +323,10 @@
   box-sizing: border-box;
 }
 
-.source-input:focus {
-  border-color: #7c5dfa;
-}
-
-/* Dropzone Style */
 .dropzone-area {
   border: 1.5px dashed #34344d;
   border-radius: 12px;
-  padding: 20px 14px;
+  padding: 18px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -326,25 +341,24 @@
 }
 
 .cloud-icon {
-  font-size: 28px;
-  margin-bottom: 6px;
+  font-size: 26px;
+  margin-bottom: 4px;
 }
 
 .dropzone-text {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #ffffff;
-  margin-bottom: 2px;
   text-align: center;
-  word-break: break-all;
 }
 
 .dropzone-sub {
   font-size: 11px;
   color: #7a7a9a;
+  margin-top: 2px;
 }
 
-/* Action Button */
+/* Submit Button & Bouncing Popcorn */
 .submit-create-btn {
   width: 100%;
   background: linear-gradient(135deg, #4831d4, #6543f8);
@@ -356,7 +370,7 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.25s ease;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .submit-create-btn:hover {
@@ -364,10 +378,14 @@
   transform: translateY(-2px);
 }
 
-.submit-create-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+.popcorn-loader {
+  display: inline-block;
+  animation: bounce 0.8s infinite alternate;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
 }
 
 .terms-disclaimer {
@@ -380,4 +398,118 @@
 .terms-disclaimer a {
   color: #5640e8;
   text-decoration: none;
+}
+
+/* ROOM CREATED SUCCESS MODAL */
+.room-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.room-modal-card {
+  background: #161624;
+  border: 1px solid rgba(124, 93, 250, 0.4);
+  border-radius: 20px;
+  padding: 32px 28px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+  animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-header-icon {
+  font-size: 42px;
+  margin-bottom: 8px;
+}
+
+.room-modal-card h2 {
+  margin: 0 0 4px 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.modal-room-title {
+  color: #a0a0c0;
+  font-size: 14px;
+  margin: 0 0 20px 0;
+}
+
+.code-display-box {
+  background: #0d0d17;
+  border: 1px dashed rgba(124, 93, 250, 0.5);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.code-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a7a9a;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.code-value {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(124, 93, 250, 0.5);
+}
+
+.modal-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-btn {
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.modal-btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.modal-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.modal-btn.primary-enter {
+  width: 100%;
+  background: #7c5dfa;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px;
+}
+
+.modal-btn.primary-enter:hover {
+  background: #6543f8;
+  box-shadow: 0 8px 20px rgba(124, 93, 250, 0.4);
 }
