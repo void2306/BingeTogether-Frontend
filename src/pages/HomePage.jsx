@@ -192,7 +192,7 @@ function HomePage() {
 
         {/* 2. Features Section (Completes the Page) */}
         <section className="features-section">
-          <h3 className="section-title">Built for Binging Together</h3>
+          <h3 className="section-title">Built for BingeTogether</h3>
           <div className="features-grid">
             <div className="feature-card">
               <span className="feature-icon">🎬</span>
