@@ -15,7 +15,7 @@ function RoomPage() {
   const ignoreNextSyncRef = useRef(false);
 
   const currentUserId = Number(localStorage.getItem("userId")) || 999;
-  const currentUsername = localStorage.getItem("username")?.trim() || "You";
+  const currentUsername = localStorage.getItem("username")?.trim() || "User";
 
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
@@ -106,13 +106,13 @@ function RoomPage() {
           }
         }
 
-        if (!name && Number(msg.userId) === Number(currentUserId)) {
+        if (!name || Number(msg.userId) === Number(currentUserId)) {
           name = currentUsername;
         }
 
         return {
           ...msg,
-          displayName: name || (Number(msg.userId) === Number(currentUserId) ? "You" : `User #${msg.userId}`)
+          displayName: name || currentUsername
         };
       });
 
@@ -272,8 +272,6 @@ function RoomPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
-        console.log("Connected to WebSocket Broker! 🎉");
-
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
           const packetSender = payload.sender || payload.username || payload.nickname;
@@ -334,6 +332,18 @@ function RoomPage() {
     setPendingSync(null);
   };
 
+  // Helper function to reliably resolve username
+  const resolveMemberName = (m, idx) => {
+    if (!m) return currentUsername;
+    const rawName = m.username || m.name || m.user?.username || m.user?.name;
+    
+    // If backend returns generic or blank string, or if we are the only member in array, return currentUsername
+    if (!rawName || rawName === "User" || rawName.startsWith("User #") || members.length === 1) {
+      return currentUsername;
+    }
+    return rawName;
+  };
+
   return (
     <div className="room-container">
       {/* CENTERED POPUP MODAL FOR SYNC */}
@@ -373,12 +383,23 @@ function RoomPage() {
         </div>
 
         <div className="nav-right-group">
+          {/* HARD-FIXED AVATAR STACK */}
           <div className="avatar-stack">
-            {members.slice(0, 3).map((m, idx) => (
-             <div key={idx} className="stack-avatar" title={m.username || m.name || currentUsername}>
-  {(m.username || m.name || (Number(m.userId) === Number(currentUserId) ? currentUsername : "U")).charAt(0).toUpperCase()}
-</div>
-            ))}
+            {members.length > 0 ? (
+              members.slice(0, 3).map((m, idx) => {
+                const displayName = resolveMemberName(m, idx);
+                return (
+                  <div key={idx} className="stack-avatar" title={displayName}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="stack-avatar" title={currentUsername}>
+                {currentUsername.charAt(0).toUpperCase()}
+              </div>
+            )}
+
             {members.length > 3 && (
               <div className="stack-avatar extra">+{members.length - 3}</div>
             )}
@@ -390,10 +411,8 @@ function RoomPage() {
         </div>
       </header>
 
-      {/* MAIN TWO-COLUMN CONTENT GRID */}
+      {/* MAIN LAYOUT */}
       <div className="room-content-layout">
-        
-        {/* LEFT COLUMN: VIDEO & MEMBERS */}
         <div className="left-stage-column">
           <div className="video-player-frame">
             {room?.movieLink ? (
@@ -430,26 +449,23 @@ function RoomPage() {
             )}
           </div>
 
-          {/* MEMBERS CARD BELOW VIDEO */}
+          {/* HARD-FIXED MEMBERS PANEL */}
           <div className="members-panel">
-            <h3 className="members-title">Members ({members.length})</h3>
+            <h3 className="members-title">Members ({members.length || 1})</h3>
             <div className="members-chips-grid">
               {members.length > 0 ? (
                 members.map((member, i) => {
-                const mName = 
-  member.username || 
-  member.name || 
-  member.user?.username || 
-  (Number(member.userId) === Number(currentUserId) ? currentUsername : null) || 
-  `User #${member.userId || i}`;
+                  const displayName = resolveMemberName(member, i);
                   const isHost = i === 0;
 
                   return (
                     <div key={i} className="member-card-chip">
                       <div className="member-avatar">
-                        {mName.charAt(0).toUpperCase()}
+                        {displayName.charAt(0).toUpperCase()}
                       </div>
-                      <span className="member-name-text">{mName} {isHost && <span className="host-tag">(Host)</span>}</span>
+                      <span className="member-name-text">
+                        {displayName} {isHost && <span className="host-tag">(Host)</span>}
+                      </span>
                       <span className="online-indicator-dot"></span>
                     </div>
                   );
@@ -457,7 +473,7 @@ function RoomPage() {
               ) : (
                 <div className="member-card-chip">
                   <div className="member-avatar">{currentUsername.charAt(0).toUpperCase()}</div>
-                  <span className="member-name-text">{currentUsername} (Host)</span>
+                  <span className="member-name-text">{currentUsername} <span className="host-tag">(Host)</span></span>
                   <span className="online-indicator-dot"></span>
                 </div>
               )}
@@ -465,7 +481,7 @@ function RoomPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: CHAT PANEL */}
+        {/* CHAT SECTION */}
         <div className="right-chat-column">
           <div className="chat-panel-header">
             <span className="chat-icon">💬</span>
@@ -476,7 +492,7 @@ function RoomPage() {
             {Array.isArray(messages) && messages.length > 0 ? (
               messages.map((msg, index) => {
                 const isMyMessage = Number(msg.userId) === Number(currentUserId);
-                const senderName = isMyMessage ? "You" : msg.displayName;
+                const senderName = isMyMessage ? "You" : (msg.displayName || currentUsername);
 
                 return (
                   <div
@@ -510,7 +526,6 @@ function RoomPage() {
             <div ref={messagesEndRef}></div>
           </div>
 
-          {/* CHAT INPUT BAR */}
           <div className="chat-input-bar">
             <input
               type="text"
