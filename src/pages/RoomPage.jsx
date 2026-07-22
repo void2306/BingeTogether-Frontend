@@ -23,8 +23,8 @@ function RoomPage() {
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   
-  // Dynamic map holding userId -> verified username
-  const [userCache, setUserCache] = useState({});
+  // 🎯 Map holding user ID -> username learned across active sessions
+  const [userMap, setUserMap] = useState({});
 
   const stompClientRef = useRef(null);
   const [pendingSync, setPendingSync] = useState(null);
@@ -33,32 +33,9 @@ function RoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 🚀 Fetch username from backend user API if missing in members DTO
-  const fetchUsernameById = async (userId) => {
-    if (!userId || userCache[Number(userId)]) return;
-
-    try {
-      const token = localStorage.getItem("token");
-      // Try fetching user profile endpoint
-      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "69420"
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        const fetchedName = userData.username || userData.name || userData.email?.split("@")[0];
-        if (fetchedName) {
-          setUserCache((prev) => ({ ...prev, [Number(userId)]: fetchedName }));
-        }
-      }
-    } catch (err) {
-      console.warn(`Could not fetch username for ID ${userId}:`, err);
-    }
+  const updateMemberMap = (id, name) => {
+    if (!id || !name || name === "User" || name.startsWith("User #")) return;
+    setUserMap((prev) => ({ ...prev, [Number(id)]: name }));
   };
 
   const fetchMembersList = async () => {
@@ -76,18 +53,13 @@ function RoomPage() {
       const memberArray = Array.isArray(data) ? data : [];
       setMembers(memberArray);
 
-      // Check each member in array
       memberArray.forEach((m) => {
         let mId = typeof m === "object" ? (m?.userId?.id || m?.userId || m?.id || m?.user?.id) : m;
         if (typeof mId === "object" && mId !== null) mId = mId.id || mId.userId;
-        
         let mName = m?.username || m?.name || m?.user?.username || m?.user?.name;
 
-        if (mId && mName && mName !== "User" && !mName.startsWith("User #")) {
-          setUserCache((prev) => ({ ...prev, [Number(mId)]: mName }));
-        } else if (mId && Number(mId) !== Number(currentUserId) && !userCache[Number(mId)]) {
-          // If name missing from DTO, trigger on-the-fly user lookup
-          fetchUsernameById(mId);
+        if (mId && mName) {
+          updateMemberMap(mId, mName);
         }
       });
 
@@ -138,12 +110,12 @@ function RoomPage() {
       const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
-        if (msg.userId && name && name !== "User" && !name.startsWith("User #")) {
-          setUserCache((prev) => ({ ...prev, [Number(msg.userId)]: name }));
+        if (msg.userId && name) {
+          updateMemberMap(msg.userId, name);
         }
 
         if (!name || name === "null" || name === "User" || name.startsWith("User #")) {
-          name = userCache[Number(msg.userId)];
+          name = userMap[Number(msg.userId)];
         }
 
         if (Number(msg.userId) === Number(currentUserId)) {
@@ -152,7 +124,7 @@ function RoomPage() {
 
         return {
           ...msg,
-          displayName: name || userCache[Number(msg.userId)] || `User #${msg.userId}`
+          displayName: name || userMap[Number(msg.userId)] || `User #${msg.userId}`
         };
       });
 
@@ -312,13 +284,23 @@ function RoomPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
+        // 🚀 Announce username over WebSocket so all connected browsers learn this name!
+        client.publish({
+          destination: `/app/room/${roomCode}/sync`,
+          body: JSON.stringify({
+            sender: currentUsername,
+            userId: currentUserId,
+            action: "USER_ANNOUNCE"
+          })
+        });
+
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
           const packetSender = payload.sender || payload.username || payload.nickname;
           const packetUserId = payload.userId;
 
           if (packetUserId && packetSender) {
-            setUserCache((prev) => ({ ...prev, [Number(packetUserId)]: packetSender }));
+            updateMemberMap(packetUserId, packetSender);
           }
 
           if (packetSender && packetSender.trim() === currentUsername.trim()) {
@@ -378,7 +360,7 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Resolve Member Name cleanly
+  // 🎯 Resolve Member Name strictly using ID matching & Announce Cache
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? "Host" : `Member #${idx + 1}`;
 
@@ -392,17 +374,17 @@ function RoomPage() {
       }
     }
 
-    // 1. Current logged-in user
+    // 1. Current logged-in user session
     if (mUserId && Number(mUserId) === Number(currentUserId)) {
       return currentUsername;
     }
 
-    // 2. Check fetched / cached username map
-    if (mUserId && userCache[Number(mUserId)]) {
-      return userCache[Number(mUserId)];
+    // 2. Name received via STOMP user announcement or chat
+    if (mUserId && userMap[Number(mUserId)]) {
+      return userMap[Number(mUserId)];
     }
 
-    // 3. Direct raw property
+    // 3. Raw name property from backend object if sent
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -571,7 +553,7 @@ function RoomPage() {
             {Array.isArray(messages) && messages.length > 0 ? (
               messages.map((msg, index) => {
                 const isMyMessage = Number(msg.userId) === Number(currentUserId);
-                const senderName = isMyMessage ? "You" : (msg.displayName || userCache[Number(msg.userId)] || currentUsername);
+                const senderName = isMyMessage ? "You" : (msg.displayName || userMap[Number(msg.userId)] || currentUsername);
 
                 return (
                   <div
