@@ -28,7 +28,7 @@
   max-width: 880px;
   display: flex;
   flex-direction: column;
-  gap: 18px; /* Tighter layout gap */
+  gap: 18px;
   z-index: 2;
   animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -38,7 +38,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Navbar & Centered Logo */
+/* Navbar */
 .create-navbar {
   display: flex;
   justify-content: space-between;
@@ -48,7 +48,7 @@
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 12px; /* Pulled logo closer */
+  gap: 12px;
 }
 
 .back-home-btn {
@@ -283,9 +283,9 @@
 
 /* Active Purple Glow Ring */
 .source-card.selected-glow {
-  border-color: #7c5dfa;
-  box-shadow: 0 0 20px rgba(124, 93, 250, 0.35);
-  background: rgba(124, 93, 250, 0.05);
+  border-color: #7c5dfa !important;
+  box-shadow: 0 0 20px rgba(124, 93, 250, 0.45) !important;
+  background: rgba(124, 93, 250, 0.08) !important;
 }
 
 .source-card-header {
@@ -388,23 +388,11 @@
   to { transform: translateY(-4px); }
 }
 
-.terms-disclaimer {
-  color: #7a7a9a;
-  font-size: 12px;
-  margin: 0;
-  text-align: center;
-}
-
-.terms-disclaimer a {
-  color: #5640e8;
-  text-decoration: none;
-}
-
 /* ROOM CREATED SUCCESS MODAL */
 .room-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.82);
   backdrop-filter: blur(10px);
   z-index: 9999;
   display: flex;
@@ -418,11 +406,12 @@
   border: 1px solid rgba(124, 93, 250, 0.4);
   border-radius: 20px;
   padding: 32px 28px;
-  max-width: 420px;
+  max-width: 440px;
   width: 100%;
   text-align: center;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
   animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 @keyframes modalPop {
@@ -452,10 +441,11 @@
   background: #0d0d17;
   border: 1px dashed rgba(124, 93, 250, 0.5);
   border-radius: 14px;
-  padding: 14px 12px;
+  padding: 14px 16px;
   margin-bottom: 20px;
-  overflow: hidden; /* Prevents overflow */
-  word-break: break-all; /* Breaks long room codes cleanly */
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .code-label {
@@ -464,16 +454,19 @@
   font-weight: 700;
   color: #7a7a9a;
   letter-spacing: 1px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
+
+/* Scaled down + clean word break so long codes fit */
 .code-value {
-  font-size: 20px; /* Scaled down from 32px so long names fit comfortably */
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 1px;
   color: #ffffff;
   text-shadow: 0 0 12px rgba(124, 93, 250, 0.5);
-  word-wrap: break-word;
+  word-break: break-all;
   white-space: normal;
+  max-width: 100%;
 }
 
 .modal-actions-grid {

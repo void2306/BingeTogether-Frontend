@@ -312,9 +312,14 @@ function CreateRoomPage() {
                 type="text"
                 placeholder="https://youtu.be/..."
                 value={movieLink}
+                onFocus={() => {
+                  setActiveTab("link");
+                  setSelectedFile(null);
+                }}
                 onChange={(e) => {
                   setMovieLink(e.target.value);
                   setActiveTab("link");
+                  setSelectedFile(null);
                 }}
                 disabled={loading || uploading}
                 className="source-input"
@@ -382,10 +387,6 @@ function CreateRoomPage() {
               "🎬 Create & Continue →"
             )}
           </button>
-
-          <p className="terms-disclaimer">
-            By creating a room, you agree to our <a href="#terms">Terms & Conditions</a>.
-          </p>
         </div>
       </div>
     </div>
