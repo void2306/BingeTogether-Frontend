@@ -8,6 +8,10 @@ function JoinRoomPage() {
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState("User");
   const [showDropdown, setShowDropdown] = useState(false);
+  
+  // Custom Status States (Replaces Browser Alerts)
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const navigate = useNavigate();
 
@@ -16,19 +20,33 @@ function JoinRoomPage() {
     if (savedUsername) setUsername(savedUsername);
   }, []);
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setRoomCode(text.trim());
+        setErrorMessage("");
+      }
+    } catch (err) {
+      console.error("Clipboard permission denied/error:", err);
+    }
+  };
+
   const handleJoinRoom = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
 
     const userId = localStorage.getItem("userId");
 
     if (!userId || userId === "undefined" || userId === "null") {
-      alert("Please log in first.");
-      navigate("/login");
+      setErrorMessage("Please log in first to join a room.");
+      setTimeout(() => navigate("/login"), 1500);
       return;
     }
 
     if (!roomCode.trim()) {
-      alert("Please enter a valid Room Code.");
+      setErrorMessage("Please enter a valid room code.");
       return;
     }
 
@@ -38,8 +56,6 @@ function JoinRoomPage() {
       roomCode: roomCode.trim(),
       userId: Number(userId),
     };
-
-    console.log("[DEBUG] Sending Clean Join Payload:", payload);
 
     try {
       const token = localStorage.getItem("token");
@@ -55,21 +71,25 @@ function JoinRoomPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`Server responded with status code ${response.status}`);
+        throw new Error("Room not found. Please check the code and try again.");
       }
 
       const data = await response.json();
-      console.log("[DEBUG] Server Handshake Data:", data);
 
       if (data.success || data.roomCode) {
+        setSuccessMessage("✅ Joined successfully! Redirecting...");
         const targetRoomCode = data.roomCode || roomCode.trim();
-        navigate(`/room/${targetRoomCode}`);
+        
+        // 0.7 second delay for sleek transition
+        setTimeout(() => {
+          navigate(`/room/${targetRoomCode}`);
+        }, 700);
       } else {
-        alert(`Failed to join room: ${data.message || "Unknown error"} ❌`);
+        setErrorMessage(`❌ ${data.message || "Room not found. Please check the room code and try again."}`);
       }
     } catch (error) {
       console.error("Network interface error:", error);
-      alert(`Connection failed: ${error.message}`);
+      setErrorMessage("❌ Room not found. Please check the room code and try again.");
     } finally {
       setLoading(false);
     }
@@ -157,34 +177,64 @@ function JoinRoomPage() {
           <div className="join-room-card">
             <form onSubmit={handleJoinRoom} className="join-form">
               <div className="input-group">
-                <label>Room Code</label>
-                <input
-                  type="text"
-                  placeholder="e.g. CHILL1234"
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value)}
-                  disabled={loading}
-                  required
-                />
+                <label>🔑 Room Code</label>
+                <div className="input-paste-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Enter room code"
+                    value={roomCode}
+                    onChange={(e) => {
+                      setRoomCode(e.target.value);
+                      setErrorMessage("");
+                    }}
+                    disabled={loading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="paste-action-btn"
+                    onClick={handlePasteFromClipboard}
+                    disabled={loading}
+                  >
+                    📋 Paste
+                  </button>
+                </div>
               </div>
+
+              {/* Inline Errors & Success Alerts */}
+              {errorMessage && (
+                <div className="card-alert-banner error-alert">
+                  {errorMessage}
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="card-alert-banner success-alert">
+                  {successMessage}
+                </div>
+              )}
 
               <button
                 type="submit"
                 className="submit-join-btn"
                 disabled={loading}
               >
-                {loading ? "Connecting to space..." : "Join Room"}
+                {loading ? (
+                  <span className="joining-loader">
+                    <span className="spinner-dot"></span> Joining...
+                  </span>
+                ) : (
+                  "Join Room"
+                )}
               </button>
             </form>
 
-            {/* Help Information Box matching Mockup */}
+            {/* Help Information Box */}
             <div className="info-help-box">
               <div className="info-icon-circle">?</div>
               <div className="info-text">
                 <h4>How to find room code?</h4>
-                <p>
-                  Ask the host for the room code and enter it above to jump into the watch party.
-                </p>
+                <p>Ask your friend to share the room code and paste it above.</p>
               </div>
             </div>
           </div>

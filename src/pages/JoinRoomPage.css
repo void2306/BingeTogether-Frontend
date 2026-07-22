@@ -187,7 +187,7 @@
 .join-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .input-group {
@@ -203,12 +203,19 @@
   font-weight: 600;
 }
 
-.input-group input {
+/* Input with Paste Action Button Inside */
+.input-paste-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-paste-wrapper input {
   width: 100%;
   background: #10101a;
   border: 1px solid #28283d;
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 14px 100px 14px 16px; /* Right padding for paste button */
   color: #ffffff;
   font-size: 15px;
   outline: none;
@@ -216,11 +223,53 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.input-group input:focus {
+.input-paste-wrapper input:focus {
   border-color: #7c5dfa;
   box-shadow: 0 0 12px rgba(124, 93, 250, 0.3);
 }
 
+.paste-action-btn {
+  position: absolute;
+  right: 8px;
+  background: rgba(124, 93, 250, 0.15);
+  border: 1px solid rgba(124, 93, 250, 0.3);
+  color: #a885ff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.paste-action-btn:hover {
+  background: #7c5dfa;
+  color: #ffffff;
+}
+
+/* In-Card Status Banners */
+.card-alert-banner {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  animation: fadeIn 0.25s ease;
+}
+
+.error-alert {
+  background: rgba(255, 71, 87, 0.12);
+  border: 1px solid rgba(255, 71, 87, 0.35);
+  color: #ff4757;
+}
+
+.success-alert {
+  background: rgba(46, 213, 115, 0.12);
+  border: 1px solid rgba(46, 213, 115, 0.35);
+  color: #2ed573;
+}
+
+/* Submit Button & Spinner Loader */
 .submit-join-btn {
   width: 100%;
   background: linear-gradient(135deg, #4831d4, #6543f8);
@@ -240,17 +289,37 @@
 }
 
 .submit-join-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
   transform: none;
 }
 
-/* Info Box */
+.joining-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spinner-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Help Info Box */
 .info-help-box {
   background: #10101a;
   border: 1px solid #252538;
   border-radius: 14px;
-  padding: 18px 16px;
+  padding: 16px;
   display: flex;
   align-items: flex-start;
   gap: 14px;
@@ -272,7 +341,7 @@
 }
 
 .info-text h4 {
-  margin: 0 0 4px 0;
+  margin: 0 0 3px 0;
   font-size: 14px;
   font-weight: 700;
   color: #ffffff;
