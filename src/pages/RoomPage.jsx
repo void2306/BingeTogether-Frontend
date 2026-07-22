@@ -21,6 +21,7 @@ function RoomPage() {
   const [members, setMembers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const [copied, setCopied] = useState(false);
   const stompClientRef = useRef(null);
 
   const [pendingSync, setPendingSync] = useState(null);
@@ -29,7 +30,6 @@ function RoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 🎯 Fetch Members API returning data directly to prevent state lag
   const fetchMembersList = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -42,7 +42,7 @@ function RoomPage() {
         }
       });
       const data = await response.json();
-      setMembers(data);
+      setMembers(Array.isArray(data) ? data : []);
       return data;
     } catch (err) {
       console.error("Error fetching members:", err);
@@ -66,7 +66,6 @@ function RoomPage() {
       const data = await response.json();
       setRoom(data);
 
-      // Fetch members first, then fetch messages using that fresh data
       const freshMembers = await fetchMembersList();
       fetchMessages(data.id, freshMembers);
     } catch (err) {
@@ -88,12 +87,10 @@ function RoomPage() {
       });
       const rawMessages = await response.json();
 
-      // 🎯 Enrich messages with usernames immediately before setting state
-      const enrichedMessages = rawMessages.map((msg) => {
+      const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
         if (!name || name === "null" || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) {
-          // Look up in active members
           const match = activeMembers.find((m) => {
             const mId = m.userId || m.id || m.user?.id;
             return Number(mId) === Number(msg.userId);
@@ -170,16 +167,7 @@ function RoomPage() {
       navigate("/");
     } catch (err) {
       console.error("Failed to leave room cleanly:", err);
-    }
-  };
-
-  const getRoomVibeMessage = (roomType) => {
-    if (!roomType) return "Enjoy your watch session 🎬";
-    switch (roomType.toLowerCase()) {
-      case "couple": return "Get cozy together ❤️ enjoy your movie time";
-      case "group": return "Let’s gooo 🔥 enjoy with your squad";
-      case "solo": return "Relax, unwind, and enjoy your time 🎧";
-      default: return "Enjoy your watch session 🎬";
+      navigate("/");
     }
   };
 
@@ -202,6 +190,14 @@ function RoomPage() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
+  const handleCopyCode = () => {
+    if (roomCode) {
+      navigator.clipboard.writeText(roomCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   useEffect(() => {
     if (!roomCode) return;
     fetchRoom();
@@ -211,9 +207,10 @@ function RoomPage() {
     if (!room?.id) return;
     const interval = setInterval(() => {
       fetchMessages(room.id, members);
-    }, 3000);
+      fetchMembersList();
+    }, 4000);
     return () => clearInterval(interval);
-  }, [room?.id, members]); 
+  }, [room?.id]); 
 
   useEffect(() => {
     scrollToBottom();
@@ -268,8 +265,6 @@ function RoomPage() {
   }, [room?.movieLink]);
 
   useEffect(() => {
-    console.log("[DEBUG] Connecting via SockJS to:", WS_BASE_URL);
-
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_BASE_URL),
       connectHeaders: {
@@ -277,12 +272,10 @@ function RoomPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
-        console.log("Connected to BingeTogether WebSocket Broker via SockJS! 🎉");
+        console.log("Connected to WebSocket Broker! 🎉");
 
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
-          console.log("[DEBUG] Received Sync Payload from WebSocket:", payload);
-
           const packetSender = payload.sender || payload.username || payload.nickname;
 
           if (packetSender && packetSender.trim() === currentUsername.trim()) {
@@ -290,9 +283,8 @@ function RoomPage() {
           }
 
           if ((payload.targetTime !== undefined || payload.action)) {
-            console.log("[POPUP TRIGGERED] Showing synchronization modal for time:", payload.targetTime);
             setPendingSync({
-              sender: packetSender || "Another User",
+              sender: packetSender || "Someone",
               targetTime: Number(payload.targetTime)
             });
           }
@@ -318,14 +310,10 @@ function RoomPage() {
         targetTime: seconds, 
       };
 
-      console.log("[DEBUG] Pushing frame packet out:", syncPayload);
-
       client.publish({
         destination: `/app/room/${roomCode}/sync`,
         body: JSON.stringify(syncPayload),
       });
-    } else {
-      console.warn("[WARN] STOMP Client is not connected yet.");
     }
   };
 
@@ -348,68 +336,72 @@ function RoomPage() {
 
   return (
     <div className="room-container">
+      {/* CENTERED POPUP MODAL FOR SYNC */}
       {pendingSync && (
-        <div className="sync-popup-overlay" style={{
-          position: "fixed", top: "25px", left: "50%", transform: "translateX(-50%)",
-          backgroundColor: "#1c1c27", color: "#ffffff", padding: "16px 28px",
-          borderRadius: "12px", boxShadow: "0px 10px 30px rgba(0,0,0,0.6)", zIndex: 9999,
-          display: "flex", gap: "20px", alignItems: "center", border: "1px solid #32324d"
-        }}>
-          <span style={{ fontSize: "14px", letterSpacing: "0.3px" }}>
-            🎬 <strong>{pendingSync.sender}</strong> wants to switch to <strong>{formatTime(pendingSync.targetTime)}</strong>. Do you?
-          </span>
+        <div className="sync-modal-backdrop">
+          <div className="sync-modal-card">
+            <button className="sync-close-x" onClick={() => setPendingSync(null)}>✕</button>
+            <div className="sync-icon">🎬</div>
+            <h3><strong>{pendingSync.sender}</strong> wants to skip to <strong>{formatTime(pendingSync.targetTime)}</strong></h3>
+            <p className="sync-subtext">Everyone will be synced in real-time</p>
 
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button onClick={() => handleApplySync(pendingSync.targetTime)} style={{ backgroundColor: "#2ed573", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
-              Yes
-            </button>
-            <button onClick={() => setPendingSync(null)} style={{ backgroundColor: "#ff4757", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
-              No
-            </button>
+            <div className="sync-btn-group">
+              <button className="sync-accept-btn" onClick={() => handleApplySync(pendingSync.targetTime)}>
+                Accept
+              </button>
+              <button className="sync-ignore-btn" onClick={() => setPendingSync(null)}>
+                Ignore
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="room-header">
-        {room && (
-          <>
-            <div className="header-top">
-              <div className="room-title">
-                <h1>🎬 {room.roomName}</h1>
-              </div>
-              <button className="leave-btn" onClick={leaveRoom}>
-                Leave Room
-              </button>
-            </div>
+      {/* TOP HEADER NAV BAR */}
+      <header className="room-navbar">
+        <div className="nav-left-group">
+          <span className="room-logo-icon">🎬</span>
+          <h1 className="room-main-title">{room?.roomName || "Watch Party"}</h1>
+          <span className="room-badge">{room?.roomType || "Solo"}</span>
 
-            <div className="room-details">
-              <div className="detail-card">
-                <span>Room Code</span>
-                <h4>{room.roomCode}</h4>
-              </div>
-              <div className="detail-card">
-                <span>Room Type</span>
-                <h4>{room.roomType}</h4>
-              </div>
-              <div className="detail-card">
-                <span>Members</span>
-                <h4>{members.length}</h4>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+          <div className="room-code-chip">
+            <span className="code-lbl">Room Code: <strong>{roomCode}</strong></span>
+            <button className="copy-code-btn" onClick={handleCopyCode}>
+              {copied ? "✓ Copied" : "📋 Copy"}
+            </button>
+          </div>
+        </div>
 
-      <div className="content-container">
-        <div className="video-section">
-          {room && <p>{getRoomVibeMessage(room.roomType)}</p>}
-          {room?.movieLink ? (
-            <div style={{ borderRadius: "12px", overflow: "hidden", backgroundColor: "#000" }}>
-              {isYouTubeUrl(room.movieLink) ? (
+        <div className="nav-right-group">
+          <div className="avatar-stack">
+            {members.slice(0, 3).map((m, idx) => (
+              <div key={idx} className="stack-avatar" title={m.username || m.name}>
+                {(m.username || m.name || "U").charAt(0).toUpperCase()}
+              </div>
+            ))}
+            {members.length > 3 && (
+              <div className="stack-avatar extra">+{members.length - 3}</div>
+            )}
+          </div>
+
+          <button className="leave-room-header-btn" onClick={leaveRoom}>
+            Leave Room
+          </button>
+        </div>
+      </header>
+
+      {/* MAIN TWO-COLUMN CONTENT GRID */}
+      <div className="room-content-layout">
+        
+        {/* LEFT COLUMN: VIDEO & MEMBERS */}
+        <div className="left-stage-column">
+          <div className="video-player-frame">
+            {room?.movieLink ? (
+              isYouTubeUrl(room.movieLink) ? (
                 <iframe
                   id="room-video-player"
                   width="100%"
-                  height="400"
+                  height="460"
                   src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}?enablejsapi=1&origin=${window.location.origin}`}
                   title="YouTube Video"
                   frameBorder="0"
@@ -422,47 +414,99 @@ function RoomPage() {
                   controls
                   autoPlay
                   width="100%"
-                  height="400"
+                  height="460"
                   style={{ objectFit: "contain", display: "block" }}
                   src={room.movieLink}
-                  onSeeked={(e) => {
-                    handleLocalSeek(e.target.currentTime);
-                  }}
+                  onSeeked={(e) => handleLocalSeek(e.target.currentTime)}
                 >
-                  Your browser does not support HTML5 video playback format.
+                  Your browser does not support HTML5 video.
                 </video>
+              )
+            ) : (
+              <div className="no-video-placeholder">
+                <span>🍿</span>
+                <p>No video source attached to this room.</p>
+              </div>
+            )}
+          </div>
+
+          {/* MEMBERS CARD BELOW VIDEO */}
+          <div className="members-panel">
+            <h3 className="members-title">Members ({members.length})</h3>
+            <div className="members-chips-grid">
+              {members.length > 0 ? (
+                members.map((member, i) => {
+                  const mName = member.username || member.name || member.user?.username || `User #${member.userId || i}`;
+                  const isHost = i === 0;
+
+                  return (
+                    <div key={i} className="member-card-chip">
+                      <div className="member-avatar">
+                        {mName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="member-name-text">{mName} {isHost && <span className="host-tag">(Host)</span>}</span>
+                      <span className="online-indicator-dot"></span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="member-card-chip">
+                  <div className="member-avatar">{currentUsername.charAt(0).toUpperCase()}</div>
+                  <span className="member-name-text">{currentUsername} (Host)</span>
+                  <span className="online-indicator-dot"></span>
+                </div>
               )}
             </div>
-          ) : (
-            <p>No video available</p>
-          )}
+          </div>
         </div>
 
-        <div className="chat-section">
-          <h2>Chat</h2>
-          <div className="messages-container">
-            {Array.isArray(messages) &&
-              messages.map((msg) => {
+        {/* RIGHT COLUMN: CHAT PANEL */}
+        <div className="right-chat-column">
+          <div className="chat-panel-header">
+            <span className="chat-icon">💬</span>
+            <h2>Chat</h2>
+          </div>
+
+          <div className="chat-messages-scroll">
+            {Array.isArray(messages) && messages.length > 0 ? (
+              messages.map((msg, index) => {
                 const isMyMessage = Number(msg.userId) === Number(currentUserId);
+                const senderName = isMyMessage ? "You" : msg.displayName;
 
                 return (
                   <div
-                    key={msg.id || Math.random()}
-                    className={`message-wrapper ${isMyMessage ? "own-wrapper" : "other-wrapper"}`}
+                    key={msg.id || index}
+                    className={`message-row ${isMyMessage ? "own-row" : "other-row"}`}
                   >
-                    <span className="message-username">
-                      {isMyMessage ? "You" : msg.displayName}
-                    </span>
-                    <div className={`message-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
-                      <p>{msg.message}</p>
+                    {!isMyMessage && (
+                      <div className="msg-avatar">
+                        {senderName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="msg-content-wrapper">
+                      <div className="msg-header-info">
+                        <span className="msg-author">{senderName}</span>
+                      </div>
+
+                      <div className={`msg-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
+                        <p>{msg.message}</p>
+                      </div>
                     </div>
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div className="empty-chat-msg">
+                <span>💬</span>
+                <p>No messages yet. Say hello to the room!</p>
+              </div>
+            )}
             <div ref={messagesEndRef}></div>
           </div>
 
-          <div className="input-container">
+          {/* CHAT INPUT BAR */}
+          <div className="chat-input-bar">
             <input
               type="text"
               placeholder="Type a message..."
@@ -470,9 +514,12 @@ function RoomPage() {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             />
-            <button onClick={sendMessage}>Send</button>
+            <button className="chat-send-btn" onClick={sendMessage}>
+              Send
+            </button>
           </div>
         </div>
+
       </div>
     </div>
   );
