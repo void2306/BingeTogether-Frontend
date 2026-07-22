@@ -42,8 +42,9 @@ function RoomPage() {
         }
       });
       const data = await response.json();
-      setMembers(Array.isArray(data) ? data : []);
-      return data;
+      const memberArray = Array.isArray(data) ? data : [];
+      setMembers(memberArray);
+      return memberArray;
     } catch (err) {
       console.error("Error fetching members:", err);
       return [];
@@ -90,19 +91,24 @@ function RoomPage() {
       const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
+        // Exactly like we resolved chat user names before:
         if (!name || name === "null" || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) {
-          const match = activeMembers.find((m, idx) => {
-            let mId = typeof m === "object" ? (m?.userId?.id || m?.userId || m?.id || m?.user?.id) : m;
-            if (typeof mId === "object" && mId !== null) mId = mId.id || mId.userId;
+          const match = activeMembers.find((m) => {
+            const mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
             return Number(mId) === Number(msg.userId);
           });
 
           if (match) {
-            name = resolveMemberName(match, 0);
+            name =
+              match.username ||
+              match.name ||
+              match.user?.username ||
+              match.user?.name ||
+              (match.email ? match.email.split("@")[0] : null);
           }
         }
 
-        if (Number(msg.userId) === Number(currentUserId)) {
+        if (!name || Number(msg.userId) === Number(currentUserId)) {
           name = currentUsername;
         }
 
@@ -328,56 +334,51 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Robust Helper function to resolve distinct member usernames
+  // 🎯 Clean Chat-Style Username Resolver
   const resolveMemberName = (m, idx) => {
-    if (!m) return `Member #${idx + 1}`;
+    if (!m) return idx === 0 ? currentUsername : `Member #${idx + 1}`;
 
-    // 1. Safely extract ID whether it's a number, string, or nested object
-    let extractedUserId = null;
+    // 1. Extract ID safely
+    let mUserId = null;
     if (typeof m === "number" || typeof m === "string") {
-      extractedUserId = m;
+      mUserId = m;
     } else if (m && typeof m === "object") {
-      extractedUserId = 
-        typeof m.userId === "object" ? (m.userId?.id || m.userId?.userId) :
-        (m.userId || m.id || m.user?.id || m.user?.userId);
+      mUserId = m.userId?.id || m.userId || m.id || m.user?.id;
+      if (typeof mUserId === "object" && mUserId !== null) {
+        mUserId = mUserId.id || mUserId.userId;
+      }
     }
 
-    // 2. Safely extract Name string from all possible backend DTO structures
-    let name = null;
+    // 2. Check if this member is current logged-in user
+    if (mUserId && Number(mUserId) === Number(currentUserId)) {
+      return currentUsername;
+    }
+
+    // 3. Extract Name string directly or from inner objects
+    let rawName = null;
     if (typeof m === "string") {
-      name = m;
+      rawName = m;
     } else if (m && typeof m === "object") {
-      name = 
+      rawName = 
         m.username || 
         m.name || 
-        m.nickname ||
+        m.nickname || 
         m.user?.username || 
         m.user?.name || 
-        (typeof m.userId === "object" ? (m.userId?.username || m.userId?.name) : null) ||
         (m.email ? m.email.split("@")[0] : null);
     }
 
-    // 3. If explicit match with currently logged in user ID
-    if (extractedUserId && Number(extractedUserId) === Number(currentUserId)) {
+    if (rawName && rawName !== "null" && rawName !== "User" && !rawName.startsWith("User #") && !rawName.startsWith("Member #")) {
+      return rawName;
+    }
+
+    // 4. Fallback for host/creator if member array has 1 element or index 0
+    if (idx === 0) {
       return currentUsername;
     }
 
-    // 4. If valid username string exists and isn't a default placeholder
-    if (name && typeof name === "string" && name !== "User" && !name.startsWith("User #")) {
-      return name;
-    }
-
-    // 5. Fallback for host/first member if single participant
-    if (idx === 0 && (!extractedUserId || Number(extractedUserId) === Number(currentUserId))) {
-      return currentUsername;
-    }
-
-    // 6. Fallback displaying numerical ID cleanly
-    if (extractedUserId && typeof extractedUserId !== "object") {
-      return `User #${extractedUserId}`;
-    }
-
-    return `Member #${idx + 1}`;
+    // 5. Clean Fallback
+    return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
   return (
@@ -419,7 +420,6 @@ function RoomPage() {
         </div>
 
         <div className="nav-right-group">
-          {/* AVATAR STACK */}
           <div className="avatar-stack">
             {members.length > 0 ? (
               members.slice(0, 3).map((m, idx) => {
