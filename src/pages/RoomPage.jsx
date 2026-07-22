@@ -23,8 +23,8 @@ function RoomPage() {
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   
-  // 🎯 Map holding user ID -> username learned across active sessions
-  const [userMap, setUserMap] = useState({});
+  // Dynamic Map for User ID -> Username
+  const [userCache, setUserCache] = useState({});
 
   const stompClientRef = useRef(null);
   const [pendingSync, setPendingSync] = useState(null);
@@ -33,9 +33,9 @@ function RoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const updateMemberMap = (id, name) => {
-    if (!id || !name || name === "User" || name.startsWith("User #")) return;
-    setUserMap((prev) => ({ ...prev, [Number(id)]: name }));
+  const updateCache = (id, name) => {
+    if (!id || !name || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) return;
+    setUserCache((prev) => ({ ...prev, [Number(id)]: name }));
   };
 
   const fetchMembersList = async () => {
@@ -59,7 +59,7 @@ function RoomPage() {
         let mName = m?.username || m?.name || m?.user?.username || m?.user?.name;
 
         if (mId && mName) {
-          updateMemberMap(mId, mName);
+          updateCache(mId, mName);
         }
       });
 
@@ -86,6 +86,13 @@ function RoomPage() {
       const data = await response.json();
       setRoom(data);
 
+      // Cache owner if available
+      const ownerName = data.createdByUsername || data.ownerName || data.createdByName;
+      const ownerId = data.createdBy || data.userId || data.ownerId;
+      if (ownerId && ownerName) {
+        updateCache(ownerId, ownerName);
+      }
+
       const freshMembers = await fetchMembersList();
       fetchMessages(data.id, freshMembers);
     } catch (err) {
@@ -111,11 +118,11 @@ function RoomPage() {
         let name = msg.username || msg.senderName || msg.sender;
 
         if (msg.userId && name) {
-          updateMemberMap(msg.userId, name);
+          updateCache(msg.userId, name);
         }
 
         if (!name || name === "null" || name === "User" || name.startsWith("User #")) {
-          name = userMap[Number(msg.userId)];
+          name = userCache[Number(msg.userId)];
         }
 
         if (Number(msg.userId) === Number(currentUserId)) {
@@ -124,7 +131,7 @@ function RoomPage() {
 
         return {
           ...msg,
-          displayName: name || userMap[Number(msg.userId)] || `User #${msg.userId}`
+          displayName: name || userCache[Number(msg.userId)] || `User #${msg.userId}`
         };
       });
 
@@ -284,7 +291,7 @@ function RoomPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
-        // 🚀 Announce username over WebSocket so all connected browsers learn this name!
+        // Broadcast presence & username to everyone
         client.publish({
           destination: `/app/room/${roomCode}/sync`,
           body: JSON.stringify({
@@ -300,7 +307,7 @@ function RoomPage() {
           const packetUserId = payload.userId;
 
           if (packetUserId && packetSender) {
-            updateMemberMap(packetUserId, packetSender);
+            updateCache(packetUserId, packetSender);
           }
 
           if (packetSender && packetSender.trim() === currentUsername.trim()) {
@@ -360,7 +367,7 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Resolve Member Name strictly using ID matching & Announce Cache
+  // 🎯 Fully Dynamic Member Resolver
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? "Host" : `Member #${idx + 1}`;
 
@@ -374,17 +381,17 @@ function RoomPage() {
       }
     }
 
-    // 1. Current logged-in user session
+    // 1. Is this current logged-in user in this browser session?
     if (mUserId && Number(mUserId) === Number(currentUserId)) {
       return currentUsername;
     }
 
-    // 2. Name received via STOMP user announcement or chat
-    if (mUserId && userMap[Number(mUserId)]) {
-      return userMap[Number(mUserId)];
+    // 2. Is this name cached via WebSocket / chat broadcasts?
+    if (mUserId && userCache[Number(mUserId)]) {
+      return userCache[Number(mUserId)];
     }
 
-    // 3. Raw name property from backend object if sent
+    // 3. Check direct raw property on member object
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -402,7 +409,13 @@ function RoomPage() {
       return rawName;
     }
 
-    // Fallback
+    // 4. Host fallback from room payload if index is 0
+    if (idx === 0) {
+      const hostName = room?.createdByUsername || room?.ownerName || room?.createdByName;
+      if (hostName) return hostName;
+    }
+
+    // 5. Clean fallback
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
@@ -553,7 +566,7 @@ function RoomPage() {
             {Array.isArray(messages) && messages.length > 0 ? (
               messages.map((msg, index) => {
                 const isMyMessage = Number(msg.userId) === Number(currentUserId);
-                const senderName = isMyMessage ? "You" : (msg.displayName || userMap[Number(msg.userId)] || currentUsername);
+                const senderName = isMyMessage ? "You" : (msg.displayName || userCache[Number(msg.userId)] || currentUsername);
 
                 return (
                   <div
