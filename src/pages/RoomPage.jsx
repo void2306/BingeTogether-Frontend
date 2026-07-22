@@ -91,7 +91,6 @@ function RoomPage() {
       const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
-        // Exactly like we resolved chat user names before:
         if (!name || name === "null" || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) {
           const match = activeMembers.find((m) => {
             const mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
@@ -108,7 +107,7 @@ function RoomPage() {
           }
         }
 
-        if (!name || Number(msg.userId) === Number(currentUserId)) {
+        if (Number(msg.userId) === Number(currentUserId)) {
           name = currentUsername;
         }
 
@@ -334,11 +333,11 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Clean Chat-Style Username Resolver
+  // 🎯 Accurately resolve member names without duplicate self-naming
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? currentUsername : `Member #${idx + 1}`;
 
-    // 1. Extract ID safely
+    // 1. Extract member user ID safely
     let mUserId = null;
     if (typeof m === "number" || typeof m === "string") {
       mUserId = m;
@@ -349,12 +348,7 @@ function RoomPage() {
       }
     }
 
-    // 2. Check if this member is current logged-in user
-    if (mUserId && Number(mUserId) === Number(currentUserId)) {
-      return currentUsername;
-    }
-
-    // 3. Extract Name string directly or from inner objects
+    // 2. Extract explicit username string if backend supplied it
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -368,16 +362,17 @@ function RoomPage() {
         (m.email ? m.email.split("@")[0] : null);
     }
 
+    // 3. If this specific member ID matches the current logged-in browser session
+    if (mUserId && Number(mUserId) === Number(currentUserId)) {
+      return currentUsername;
+    }
+
+    // 4. If backend provided a real username string for another user
     if (rawName && rawName !== "null" && rawName !== "User" && !rawName.startsWith("User #") && !rawName.startsWith("Member #")) {
       return rawName;
     }
 
-    // 4. Fallback for host/creator if member array has 1 element or index 0
-    if (idx === 0) {
-      return currentUsername;
-    }
-
-    // 5. Clean Fallback
+    // 5. Fallback for other users whose username string wasn't sent by backend
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
