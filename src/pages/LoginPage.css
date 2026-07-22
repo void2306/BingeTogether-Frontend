@@ -7,7 +7,7 @@
   align-items: center;
   /* Cozy Living Room Home Movie Night Background */
   background: 
-    linear-gradient(180deg, rgba(10, 10, 20, 0.75) 0%, rgba(10, 10, 18, 0.88) 100%),
+    linear-gradient(180deg, rgba(10, 10, 20, 0.35) 0%, rgba(10, 10, 18, 0.44) 100%),
     url("/bg_login.png") no-repeat center center/cover;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   padding: 24px;

@@ -6,7 +6,7 @@
   justify-content: center;
   align-items: center;
   background: 
-    linear-gradient(180deg, rgba(10, 10, 20, 0.78) 0%, rgba(10, 10, 18, 0.90) 100%),
+    linear-gradient(180deg, rgba(10, 10, 20, 0.35) 0%, rgba(10, 10, 18, 0.45) 100%),
     url("/bg_login.png") no-repeat center center/cover;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   padding: 30px 20px;
