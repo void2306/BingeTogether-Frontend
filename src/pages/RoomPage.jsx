@@ -91,28 +91,24 @@ function RoomPage() {
         let name = msg.username || msg.senderName || msg.sender;
 
         if (!name || name === "null" || name === "User" || name.startsWith("User #") || name.startsWith("Member #")) {
-          const match = activeMembers.find((m) => {
-            const mId = m.userId || m.id || m.user?.id;
+          const match = activeMembers.find((m, idx) => {
+            let mId = typeof m === "object" ? (m?.userId?.id || m?.userId || m?.id || m?.user?.id) : m;
+            if (typeof mId === "object" && mId !== null) mId = mId.id || mId.userId;
             return Number(mId) === Number(msg.userId);
           });
 
           if (match) {
-            name =
-              match.username ||
-              match.name ||
-              match.user?.username ||
-              match.user?.name ||
-              (match.email ? match.email.split("@")[0] : null);
+            name = resolveMemberName(match, 0);
           }
         }
 
-        if (!name || Number(msg.userId) === Number(currentUserId)) {
+        if (Number(msg.userId) === Number(currentUserId)) {
           name = currentUsername;
         }
 
         return {
           ...msg,
-          displayName: name || currentUsername
+          displayName: name || (Number(msg.userId) === Number(currentUserId) ? "You" : `User #${msg.userId}`)
         };
       });
 
@@ -332,32 +328,57 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // Helper function to reliably resolve username
- const resolveMemberName = (m, idx) => {
-  if (!m) return `User #${idx + 1}`;
+  // 🎯 Robust Helper function to resolve distinct member usernames
+  const resolveMemberName = (m, idx) => {
+    if (!m) return `Member #${idx + 1}`;
 
-  // 1. Check direct properties from backend DTO
-  const name = 
-    m.username || 
-    m.name || 
-    m.user?.username || 
-    m.user?.name || 
-    m.nickname ||
-    (m.email ? m.email.split("@")[0] : null);
+    // 1. Safely extract ID whether it's a number, string, or nested object
+    let extractedUserId = null;
+    if (typeof m === "number" || typeof m === "string") {
+      extractedUserId = m;
+    } else if (m && typeof m === "object") {
+      extractedUserId = 
+        typeof m.userId === "object" ? (m.userId?.id || m.userId?.userId) :
+        (m.userId || m.id || m.user?.id || m.user?.userId);
+    }
 
-  if (name && name !== "User" && !name.startsWith("User #")) {
-    return name;
-  }
+    // 2. Safely extract Name string from all possible backend DTO structures
+    let name = null;
+    if (typeof m === "string") {
+      name = m;
+    } else if (m && typeof m === "object") {
+      name = 
+        m.username || 
+        m.name || 
+        m.nickname ||
+        m.user?.username || 
+        m.user?.name || 
+        (typeof m.userId === "object" ? (m.userId?.username || m.userId?.name) : null) ||
+        (m.email ? m.email.split("@")[0] : null);
+    }
 
-  // 2. If it's specifically the current user's item
-  const mUserId = m.userId || m.id || m.user?.id;
-  if (Number(mUserId) === Number(currentUserId)) {
-    return currentUsername;
-  }
+    // 3. If explicit match with currently logged in user ID
+    if (extractedUserId && Number(extractedUserId) === Number(currentUserId)) {
+      return currentUsername;
+    }
 
-  // 3. For distinct room members whose name is unresolvable, display User #ID
-  return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
-};
+    // 4. If valid username string exists and isn't a default placeholder
+    if (name && typeof name === "string" && name !== "User" && !name.startsWith("User #")) {
+      return name;
+    }
+
+    // 5. Fallback for host/first member if single participant
+    if (idx === 0 && (!extractedUserId || Number(extractedUserId) === Number(currentUserId))) {
+      return currentUsername;
+    }
+
+    // 6. Fallback displaying numerical ID cleanly
+    if (extractedUserId && typeof extractedUserId !== "object") {
+      return `User #${extractedUserId}`;
+    }
+
+    return `Member #${idx + 1}`;
+  };
 
   return (
     <div className="room-container">
@@ -398,7 +419,7 @@ function RoomPage() {
         </div>
 
         <div className="nav-right-group">
-          {/* HARD-FIXED AVATAR STACK */}
+          {/* AVATAR STACK */}
           <div className="avatar-stack">
             {members.length > 0 ? (
               members.slice(0, 3).map((m, idx) => {
@@ -464,7 +485,7 @@ function RoomPage() {
             )}
           </div>
 
-          {/* HARD-FIXED MEMBERS PANEL */}
+          {/* MEMBERS PANEL */}
           <div className="members-panel">
             <h3 className="members-title">Members ({members.length || 1})</h3>
             <div className="members-chips-grid">
