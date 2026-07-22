@@ -23,11 +23,8 @@ function RoomPage() {
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   
-  // Cache for mapping UserIDs to Usernames
-  const [userCache, setUserCache] = useState(() => {
-    const saved = localStorage.getItem(`room_users_${roomCode}`);
-    return saved ? JSON.parse(saved) : { [currentUserId]: currentUsername };
-  });
+  // Dynamic map holding userId -> verified username
+  const [userCache, setUserCache] = useState({});
 
   const stompClientRef = useRef(null);
   const [pendingSync, setPendingSync] = useState(null);
@@ -36,14 +33,32 @@ function RoomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Helper to record user names into cache
-  const updateCache = (id, name) => {
-    if (!id || !name || name === "User" || name.startsWith("User #")) return;
-    setUserCache((prev) => {
-      const updated = { ...prev, [Number(id)]: name };
-      localStorage.setItem(`room_users_${roomCode}`, JSON.stringify(updated));
-      return updated;
-    });
+  // 🚀 Fetch username from backend user API if missing in members DTO
+  const fetchUsernameById = async (userId) => {
+    if (!userId || userCache[Number(userId)]) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      // Try fetching user profile endpoint
+      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        const fetchedName = userData.username || userData.name || userData.email?.split("@")[0];
+        if (fetchedName) {
+          setUserCache((prev) => ({ ...prev, [Number(userId)]: fetchedName }));
+        }
+      }
+    } catch (err) {
+      console.warn(`Could not fetch username for ID ${userId}:`, err);
+    }
   };
 
   const fetchMembersList = async () => {
@@ -61,10 +76,19 @@ function RoomPage() {
       const memberArray = Array.isArray(data) ? data : [];
       setMembers(memberArray);
 
+      // Check each member in array
       memberArray.forEach((m) => {
-        const mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
-        const mName = m?.username || m?.name || m?.user?.username || m?.user?.name;
-        if (mId && mName) updateCache(mId, mName);
+        let mId = typeof m === "object" ? (m?.userId?.id || m?.userId || m?.id || m?.user?.id) : m;
+        if (typeof mId === "object" && mId !== null) mId = mId.id || mId.userId;
+        
+        let mName = m?.username || m?.name || m?.user?.username || m?.user?.name;
+
+        if (mId && mName && mName !== "User" && !mName.startsWith("User #")) {
+          setUserCache((prev) => ({ ...prev, [Number(mId)]: mName }));
+        } else if (mId && Number(mId) !== Number(currentUserId) && !userCache[Number(mId)]) {
+          // If name missing from DTO, trigger on-the-fly user lookup
+          fetchUsernameById(mId);
+        }
       });
 
       return memberArray;
@@ -114,8 +138,8 @@ function RoomPage() {
       const enrichedMessages = (Array.isArray(rawMessages) ? rawMessages : []).map((msg) => {
         let name = msg.username || msg.senderName || msg.sender;
 
-        if (msg.userId && name) {
-          updateCache(msg.userId, name);
+        if (msg.userId && name && name !== "User" && !name.startsWith("User #")) {
+          setUserCache((prev) => ({ ...prev, [Number(msg.userId)]: name }));
         }
 
         if (!name || name === "null" || name === "User" || name.startsWith("User #")) {
@@ -288,23 +312,13 @@ function RoomPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
-        // Broadcast presence so other clients learn our username
-        client.publish({
-          destination: `/app/room/${roomCode}/sync`,
-          body: JSON.stringify({
-            sender: currentUsername,
-            userId: currentUserId,
-            action: "USER_JOINED"
-          })
-        });
-
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
           const packetSender = payload.sender || payload.username || payload.nickname;
           const packetUserId = payload.userId;
 
           if (packetUserId && packetSender) {
-            updateCache(packetUserId, packetSender);
+            setUserCache((prev) => ({ ...prev, [Number(packetUserId)]: packetSender }));
           }
 
           if (packetSender && packetSender.trim() === currentUsername.trim()) {
@@ -364,7 +378,7 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Resolve Member Name strictly with Cache & ID checks
+  // 🎯 Resolve Member Name cleanly
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? "Host" : `Member #${idx + 1}`;
 
@@ -378,17 +392,17 @@ function RoomPage() {
       }
     }
 
-    // 1. Current active user session
+    // 1. Current logged-in user
     if (mUserId && Number(mUserId) === Number(currentUserId)) {
       return currentUsername;
     }
 
-    // 2. Check cached map (learned from WebSocket / chats / previous rooms)
+    // 2. Check fetched / cached username map
     if (mUserId && userCache[Number(mUserId)]) {
       return userCache[Number(mUserId)];
     }
 
-    // 3. Check direct properties from object
+    // 3. Direct raw property
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -406,7 +420,7 @@ function RoomPage() {
       return rawName;
     }
 
-    // 4. Fallback for distinct user IDs
+    // Fallback
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
