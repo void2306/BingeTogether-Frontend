@@ -194,10 +194,6 @@ function HomePage() {
           )}
         </section>
 
-        {/* 5. LOGOUT BUTTON */}
-        <button className="premium-logout-btn" onClick={handleLogout}>
-          Log Out
-        </button>
       </div>
     </div>
   );

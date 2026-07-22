@@ -10,7 +10,7 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   display: flex;
   justify-content: center;
-  padding: 40px 24px;
+  padding: 30px 24px;
   box-sizing: border-box;
   position: relative;
   overflow-x: hidden;
@@ -35,10 +35,10 @@
 
 .home-container {
   width: 100%;
-  max-width: 900px;
+  max-width: 880px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 22px; /* Tightened container spacing */
   z-index: 2;
   animation: fadeIn 0.4s ease-out;
 }
@@ -153,15 +153,15 @@
 }
 
 .hero-text h1 {
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 800;
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
   letter-spacing: -0.5px;
 }
 
 .hero-text p {
   color: #a0a0c0;
-  font-size: 16px;
+  font-size: 15px;
   margin: 0;
 }
 
@@ -186,7 +186,7 @@
 .primary-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
 }
 
 @media (max-width: 650px) {
@@ -197,13 +197,13 @@
 
 .premium-card {
   text-decoration: none;
-  border-radius: 20px;
-  padding: 26px;
+  border-radius: 18px;
+  padding: 20px 22px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  transition: all 0.25s ease;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
 }
 
 .create-card {
@@ -213,8 +213,8 @@
 }
 
 .create-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 15px 35px rgba(81, 48, 190, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(81, 48, 190, 0.45);
 }
 
 .join-card {
@@ -224,82 +224,78 @@
 }
 
 .join-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 15px 35px rgba(30, 75, 189, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(30, 75, 189, 0.45);
 }
 
 .card-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .card-icon-wrapper {
-  font-size: 32px;
+  font-size: 28px;
 }
 
 .card-details h3 {
-  margin: 0 0 4px 0;
-  font-size: 22px;
+  margin: 0 0 2px 0; /* Reduced margin under title */
+  font-size: 20px;
   font-weight: 700;
+  text-align: left;
 }
 
 .card-details p {
   margin: 0;
   font-size: 13px;
-  opacity: 0.8;
+  opacity: 0.85;
   text-align: left;
+  line-height: 1.3;
 }
 
 .card-arrow-circle {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
-  transition: transform 0.25s;
+  flex-shrink: 0;
 }
 
-.premium-card:hover .card-arrow-circle {
-  transform: translateX(4px);
-}
-
-/* 4. Recent Rooms Panel */
+/* 4. Recent Rooms Panel (Tightened Padding & Height) */
 .recent-rooms-panel {
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
-  padding: 24px;
+  border-radius: 16px;
+  padding: 16px 20px; /* Reduced vertical padding */
 }
 
 .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .panel-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
+  text-align: left;
 }
 
 .rooms-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .room-card-modern {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
-  padding: 16px 20px;
+  border-radius: 12px;
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -316,29 +312,29 @@
 .room-card-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .room-card-icon {
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .room-card-info {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 2px;
 }
 
 .title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .title-row h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #fff;
 }
@@ -347,8 +343,8 @@
   background: rgba(124, 93, 250, 0.15);
   color: #7c5dfa;
   border: 1px solid rgba(124, 93, 250, 0.3);
-  font-size: 11px;
-  padding: 2px 8px;
+  font-size: 10px;
+  padding: 2px 6px;
   border-radius: 6px;
   font-weight: 600;
 }
@@ -362,10 +358,10 @@
   background: rgba(124, 93, 250, 0.12);
   color: #7c5dfa;
   border: 1px solid rgba(124, 93, 250, 0.3);
-  padding: 8px 18px;
-  border-radius: 10px;
+  padding: 6px 14px;
+  border-radius: 8px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -375,64 +371,44 @@
   color: #ffffff;
 }
 
-/* Empty State Styling */
+/* Compact Empty State */
 .empty-rooms-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 36px 20px;
+  padding: 18px 16px; /* Reduced vertical space */
   text-align: center;
 }
 
 .empty-icon {
-  font-size: 42px;
-  margin-bottom: 12px;
+  font-size: 32px;
+  margin-bottom: 6px;
 }
 
 .empty-rooms-state h4 {
-  margin: 0 0 6px 0;
-  font-size: 18px;
+  margin: 0 0 4px 0;
+  font-size: 16px;
   color: #fff;
 }
 
 .empty-rooms-state p {
   color: #8888a0;
-  font-size: 14px;
-  margin: 0 0 20px 0;
+  font-size: 13px;
+  margin: 0 0 14px 0;
 }
 
 .empty-create-btn {
   background: #7c5dfa;
   color: #fff;
   border: none;
-  padding: 10px 22px;
-  border-radius: 10px;
+  padding: 8px 18px;
+  border-radius: 8px;
   font-weight: 600;
+  font-size: 13px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .empty-create-btn:hover {
   background: #6543f8;
-}
-
-/* 5. Premium Logout Button */
-.premium-logout-btn {
-  width: 100%;
-  background: transparent;
-  border: 1px solid rgba(255, 71, 87, 0.4);
-  color: #ff4757;
-  padding: 14px;
-  border-radius: 16px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.premium-logout-btn:hover {
-  background: #ff4757;
-  color: #ffffff;
-  transform: scale(1.01);
-  box-shadow: 0 10px 25px rgba(255, 71, 87, 0.3);
 }
