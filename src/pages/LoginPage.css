@@ -5,10 +5,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Dark cozy movie atmosphere background with room ambience */
+  /* Cozy Living Room Home Movie Night Background */
   background: 
-    radial-gradient(circle at center, rgba(30, 20, 60, 0.7) 0%, rgba(10, 10, 18, 0.92) 100%),
-    url("https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1920&q=80") no-repeat center center/cover;
+    linear-gradient(180deg, rgba(10, 10, 20, 0.75) 0%, rgba(10, 10, 18, 0.88) 100%),
+    url("https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?auto=format&fit=crop&w=1920&q=80") no-repeat center center/cover;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   padding: 24px;
   box-sizing: border-box;
