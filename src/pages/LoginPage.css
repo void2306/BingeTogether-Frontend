@@ -1,58 +1,85 @@
 .auth-wrapper {
   min-height: 100vh;
   width: 100%;
+  position: relative;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: radial-gradient(circle at center, #1b1b2d 0%, #09090f 100%);
+  /* Dark cozy movie atmosphere background with room ambience */
+  background: 
+    radial-gradient(circle at center, rgba(30, 20, 60, 0.7) 0%, rgba(10, 10, 18, 0.92) 100%),
+    url("https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1920&q=80") no-repeat center center/cover;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 20px;
+  padding: 24px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
+.auth-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 30%, rgba(124, 93, 250, 0.15), transparent 70%);
+  pointer-events: none;
+}
+
+.auth-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Header & Alignment */
 .auth-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .brand-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.brand-logo h2 {
+.brand-title {
+  color: #ffffff;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-shadow: 0 4px 20px rgba(124, 93, 250, 0.4);
+}
+
+.welcome-text {
   color: #ffffff;
   font-size: 26px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
 }
 
-.auth-header h1 {
-  color: #ffffff;
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-}
-
-.auth-header p {
-  color: #a0a0b8;
+.welcome-sub {
+  color: #a0a0c0;
   font-size: 14px;
   margin: 0;
 }
 
+/* Glassmorphism Card */
 .auth-card {
   width: 100%;
-  max-width: 420px;
-  background: rgba(18, 18, 28, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  background: rgba(18, 18, 28, 0.88);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
   padding: 32px 28px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
   box-sizing: border-box;
 }
 
@@ -95,8 +122,8 @@
 }
 
 .input-field-wrapper input:focus {
-  border-color: #5640e8;
-  box-shadow: 0 0 10px rgba(86, 64, 232, 0.3);
+  border-color: #7c5dfa;
+  box-shadow: 0 0 12px rgba(124, 93, 250, 0.35);
 }
 
 .password-toggle {
@@ -110,15 +137,23 @@
 
 .forgot-link {
   align-self: flex-end;
+  background: none;
+  border: none;
   color: #5640e8;
   font-size: 13px;
-  text-decoration: none;
   font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+  color: #7c5dfa;
 }
 
 .login-btn {
   width: 100%;
-  background: linear-gradient(135deg, #4831d4, #5a42f5);
+  background: linear-gradient(135deg, #4831d4, #6543f8);
   color: #ffffff;
   border: none;
   border-radius: 10px;
@@ -126,6 +161,11 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.login-btn:hover {
+  box-shadow: 0 6px 20px rgba(72, 49, 212, 0.45);
 }
 
 .divider {
@@ -166,4 +206,78 @@
   font-weight: 600;
   text-decoration: none;
   margin-left: 4px;
+}
+
+/* Forgot Password Modal */
+.forgot-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.forgot-modal {
+  background: #181826;
+  border: 1px solid #2a2a40;
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+}
+
+.forgot-modal h3 {
+  margin: 0 0 8px 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.forgot-modal p {
+  color: #a0a0b8;
+  font-size: 13px;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.forgot-modal input {
+  width: 100%;
+  background: #10101a;
+  border: 1px solid #28283d;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  margin-bottom: 20px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.forgot-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.cancel-btn {
+  background: #252538;
+  color: #ccc;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.send-btn {
+  background: #7c5dfa;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
 }
