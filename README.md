@@ -42,7 +42,7 @@ Create rooms. Watch together. Chat together.
 
 ## 🎥 Demo
 
-> _Add your demo GIF or screen recording here._
+https://github.com/user-attachments/assets/6b771d3c-0f74-4c94-a9e8-814ec077eb8a
 
 ## 🛠️ Tech Stack
 
