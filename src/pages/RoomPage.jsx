@@ -9,6 +9,7 @@ function RoomPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  const botMessagesEndRef = useRef(null);
 
   const playerRef = useRef(null); 
   const isSeekingRef = useRef(false);
@@ -25,6 +26,20 @@ function RoomPage() {
   const stompClientRef = useRef(null);
 
   const [pendingSync, setPendingSync] = useState(null);
+
+  // 🤖 BingeBot State & Controls
+  const [activeTab, setActiveTab] = useState("chat"); // "chat" or "bot"
+  const [botMessages, setBotMessages] = useState([
+    {
+      id: 1,
+      sender: "BingeBot",
+      text: "Hey! I'm your private watch-party AI assistant. Ask me anything about this movie or scene!",
+      isBot: true,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
+  const [botInput, setBotInput] = useState("");
+  const [isBotLoading, setIsBotLoading] = useState(false);
 
   // Read/Save room members persistent map
   const getStoredRoomNames = () => {
@@ -56,6 +71,10 @@ function RoomPage() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollBotToBottom = () => {
+    botMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const fetchMembersList = async () => {
@@ -181,6 +200,82 @@ function RoomPage() {
     }
   };
 
+  // 🤖 Handler to send private message to BingeBot AI Endpoint
+  const sendBotMessage = async () => {
+    if (!botInput.trim() || isBotLoading) return;
+
+    const userText = botInput.trim();
+    setBotInput("");
+
+    // ⏱️ Get current video timestamp
+    let currentSeconds = 0.0;
+    if (isYouTubeUrl(room?.movieLink) && playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
+      currentSeconds = playerRef.current.getCurrentTime() || 0.0;
+    } else {
+      const html5Video = document.getElementById("room-video-player");
+      if (html5Video && html5Video.currentTime) {
+        currentSeconds = html5Video.currentTime;
+      }
+    }
+
+    const userMsgObj = {
+      id: Date.now(),
+      sender: "You",
+      text: userText,
+      isBot: false,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setBotMessages((prev) => [...prev, userMsgObj]);
+    setIsBotLoading(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/api/v1/bot/chat`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420"
+        },
+        body: JSON.stringify({
+          roomId: roomCode || "default-room",
+          userMessage: userText,
+          currentTimestamp: currentSeconds,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Bot service offline");
+
+      const data = await response.json();
+
+      const botMsgObj = {
+        id: Date.now() + 1,
+        sender: "BingeBot",
+        text: data.answer || "I couldn't process your question right now.",
+        isBot: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setBotMessages((prev) => [...prev, botMsgObj]);
+    } catch (err) {
+      console.error("BingeBot Error:", err);
+      setBotMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: "BingeBot",
+          text: "Oops! BingeBot ran into a temporary glitch. Try again!",
+          isBot: true,
+          isError: true,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      setIsBotLoading(false);
+    }
+  };
+
   const leaveRoom = async () => {
     if (!room?.id) return;
     try {
@@ -248,6 +343,10 @@ function RoomPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    scrollBotToBottom();
+  }, [botMessages, isBotLoading, activeTab]);
 
   useEffect(() => {
     if (!room?.movieLink || !isYouTubeUrl(room.movieLink)) return;
@@ -394,18 +493,15 @@ function RoomPage() {
       }
     }
 
-    // 1. Current user logged into this browser window
     if (mUserId && Number(mUserId) === Number(currentUserId)) {
       return currentUsername;
     }
 
-    // 2. Check stored name mapping
     const storedMap = getStoredRoomNames();
     if (mUserId && storedMap[Number(mUserId)]) {
       return storedMap[Number(mUserId)];
     }
 
-    // 3. Raw name from backend DTO if sent
     let rawName = null;
     if (typeof m === "string") {
       rawName = m;
@@ -423,12 +519,10 @@ function RoomPage() {
       return rawName;
     }
 
-    // 4. Host slot fallback (index 0) if single creator
     if (idx === 0) {
       return room?.createdByUsername || room?.ownerName || "Sakshi Kumari";
     }
 
-    // 5. Non-host slot fallback (index 1) for joined guest
     if (idx === 1) {
       return "Akshat";
     }
@@ -572,63 +666,143 @@ function RoomPage() {
           </div>
         </div>
 
-        {/* CHAT SECTION */}
+        {/* CHAT SECTION WITH TABS (Group Chat & Private BingeBot) */}
         <div className="right-chat-column">
-          <div className="chat-panel-header">
-            <span className="chat-icon">💬</span>
-            <h2>Chat</h2>
+          <div className="chat-panel-header-tabs">
+            <button 
+              className={`chat-tab-btn ${activeTab === "chat" ? "active" : ""}`} 
+              onClick={() => setActiveTab("chat")}
+            >
+              💬 Room Chat
+            </button>
+            <button 
+              className={`chat-tab-btn ${activeTab === "bot" ? "active" : ""}`} 
+              onClick={() => setActiveTab("bot")}
+            >
+              🤖 BingeBot <span className="tab-badge">AI</span>
+            </button>
           </div>
 
-          <div className="chat-messages-scroll">
-            {Array.isArray(messages) && messages.length > 0 ? (
-              messages.map((msg, index) => {
-                const isMyMessage = Number(msg.userId) === Number(currentUserId);
-                const senderName = isMyMessage ? "You" : (msg.displayName || currentUsername);
+          {/* TAB 1: GROUP CHAT */}
+          {activeTab === "chat" && (
+            <>
+              <div className="chat-messages-scroll">
+                {Array.isArray(messages) && messages.length > 0 ? (
+                  messages.map((msg, index) => {
+                    const isMyMessage = Number(msg.userId) === Number(currentUserId);
+                    const senderName = isMyMessage ? "You" : (msg.displayName || currentUsername);
 
-                return (
+                    return (
+                      <div
+                        key={msg.id || index}
+                        className={`message-row ${isMyMessage ? "own-row" : "other-row"}`}
+                      >
+                        {!isMyMessage && (
+                          <div className="msg-avatar">
+                            {senderName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+
+                        <div className="msg-content-wrapper">
+                          <div className="msg-header-info">
+                            <span className="msg-author">{senderName}</span>
+                          </div>
+
+                          <div className={`msg-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
+                            <p>{msg.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="empty-chat-msg">
+                    <span>💬</span>
+                    <p>No messages yet. Say hello to the room!</p>
+                  </div>
+                )}
+                <div ref={messagesEndRef}></div>
+              </div>
+
+              <div className="chat-input-bar">
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                />
+                <button className="chat-send-btn" onClick={sendMessage}>
+                  Send
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* TAB 2: PRIVATE BINGEBOT AI */}
+          {activeTab === "bot" && (
+            <>
+              <div className="chat-messages-scroll">
+                {botMessages.map((msg) => (
                   <div
-                    key={msg.id || index}
-                    className={`message-row ${isMyMessage ? "own-row" : "other-row"}`}
+                    key={msg.id}
+                    className={`message-row ${msg.isBot ? "other-row" : "own-row"}`}
                   >
-                    {!isMyMessage && (
-                      <div className="msg-avatar">
-                        {senderName.charAt(0).toUpperCase()}
+                    {msg.isBot && (
+                      <div className="msg-avatar bot-avatar-icon">
+                        🤖
                       </div>
                     )}
 
                     <div className="msg-content-wrapper">
                       <div className="msg-header-info">
-                        <span className="msg-author">{senderName}</span>
+                        <span className="msg-author">{msg.sender}</span>
+                        <span className="msg-time">{msg.timestamp}</span>
                       </div>
 
-                      <div className={`msg-bubble ${isMyMessage ? "own-bubble" : "other-bubble"}`}>
-                        <p>{msg.message}</p>
+                      <div className={`msg-bubble ${msg.isBot ? "other-bubble bot-bubble" : "own-bubble"} ${msg.isError ? "error-bubble" : ""}`}>
+                        <p>{msg.text}</p>
                       </div>
                     </div>
                   </div>
-                );
-              })
-            ) : (
-              <div className="empty-chat-msg">
-                <span>💬</span>
-                <p>No messages yet. Say hello to the room!</p>
-              </div>
-            )}
-            <div ref={messagesEndRef}></div>
-          </div>
+                ))}
 
-          <div className="chat-input-bar">
-            <input
-              type="text"
-              placeholder="Type a message..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            />
-            <button className="chat-send-btn" onClick={sendMessage}>
-              Send
-            </button>
-          </div>
+                {isBotLoading && (
+                  <div className="message-row other-row">
+                    <div className="msg-avatar bot-avatar-icon">🤖</div>
+                    <div className="msg-content-wrapper">
+                      <div className="msg-header-info">
+                        <span className="msg-author">BingeBot</span>
+                      </div>
+                      <div className="msg-bubble other-bubble bot-bubble loading-dots">
+                        <span>Thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={botMessagesEndRef}></div>
+              </div>
+
+              <div className="chat-input-bar">
+                <input
+                  type="text"
+                  placeholder="Ask BingeBot anything..."
+                  value={botInput}
+                  onChange={(e) => setBotInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendBotMessage()}
+                  disabled={isBotLoading}
+                />
+                <button 
+                  className="chat-send-btn bot-send-btn" 
+                  onClick={sendBotMessage}
+                  disabled={!botInput.trim() || isBotLoading}
+                >
+                  Ask
+                </button>
+              </div>
+            </>
+          )}
+
         </div>
 
       </div>

@@ -537,3 +537,67 @@
     height: 220px !important;
   }
 }
+/* Tabs Bar Styling */
+.chat-panel-header-tabs {
+  display: flex;
+  background-color: #1a1a24;
+  border-bottom: 1px solid #2e2e3e;
+  padding: 4px;
+}
+
+.chat-tab-btn {
+  flex: 1;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  color: #a0a0b0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.chat-tab-btn.active {
+  background-color: #2a2a3c;
+  color: #ffffff;
+}
+
+.tab-badge {
+  font-size: 0.65rem;
+  background-color: #6366f1;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* BingeBot Custom Bubbles */
+.bot-avatar-icon {
+  background: #6366f1 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.bot-bubble {
+  border-left: 3px solid #6366f1 !important;
+}
+
+.error-bubble {
+  border-left: 3px solid #ef4444 !important;
+  background-color: #3f1d1d !important;
+}
+
+.bot-send-btn {
+  background-color: #6366f1 !important;
+}
+
+.loading-dots span {
+  font-style: italic;
+  opacity: 0.8;
+}
