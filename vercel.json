@@ -7,7 +7,7 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "https://bingetogether-production.up.railway.app"
+    "VITE_API_URL": "https://bingetogether.onrender.com"
   },
   "rewrites": [
     {
