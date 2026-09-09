@@ -4,6 +4,7 @@ import "./RoomPage.css";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { API_BASE_URL, WS_BASE_URL } from "../config";
+import CustomVideoPlayer from "../components/CustomVideoPlayer";
 
 function RoomPage() {
   const { roomCode } = useParams();
@@ -26,6 +27,7 @@ function RoomPage() {
   const stompClientRef = useRef(null);
 
   const [pendingSync, setPendingSync] = useState(null);
+  const [demoVideo, setDemoVideo] = useState(null);
 
   // 🤖 BingeBot State & Controls
   const [activeTab, setActiveTab] = useState("chat"); // "chat" or "bot"
@@ -209,7 +211,7 @@ function RoomPage() {
 
     // ⏱️ Get current video timestamp
     let currentSeconds = 0.0;
-    if (isYouTubeUrl(room?.movieLink) && playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
+    if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
       currentSeconds = playerRef.current.getCurrentTime() || 0.0;
     } else {
       const html5Video = document.getElementById("room-video-player");
@@ -463,7 +465,8 @@ function RoomPage() {
   };
 
   const handleApplySync = (targetTime) => {
-    if (isYouTubeUrl(room?.movieLink)) {
+    const activeSource = demoVideo || room?.movieLink;
+    if (isYouTubeUrl(activeSource)) {
       if (playerRef.current && typeof playerRef.current.seekTo === "function") {
         isSeekingRef.current = true;
         ignoreNextSyncRef.current = true;
@@ -471,9 +474,13 @@ function RoomPage() {
         setTimeout(() => { isSeekingRef.current = false; }, 1200);
       }
     } else {
-      const html5Player = document.getElementById("room-video-player");
-      if (html5Player) {
-        html5Player.currentTime = targetTime;
+      if (playerRef.current && typeof playerRef.current.seekTo === "function") {
+        playerRef.current.seekTo(targetTime);
+      } else {
+        const html5Player = document.getElementById("room-video-player");
+        if (html5Player) {
+          html5Player.currentTime = targetTime;
+        }
       }
     }
     setPendingSync(null);
@@ -600,39 +607,77 @@ function RoomPage() {
       <div className="room-content-layout">
         <div className="left-stage-column">
           <div className="video-player-frame">
-            {room?.movieLink ? (
-              isYouTubeUrl(room.movieLink) ? (
+            {(demoVideo || room?.movieLink) ? (
+              isYouTubeUrl(demoVideo || room?.movieLink) ? (
                 <iframe
                   id="room-video-player"
                   width="100%"
                   height="460"
-                  src={`https://www.youtube.com/embed/${getYouTubeId(room.movieLink)}?enablejsapi=1&origin=${window.location.origin}`}
+                  src={`https://www.youtube.com/embed/${getYouTubeId(demoVideo || room.movieLink)}?enablejsapi=1&origin=${window.location.origin}`}
                   title="YouTube Video"
                   frameBorder="0"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
                 />
               ) : (
-                <video
-                  id="room-video-player"
-                  controls
-                  autoPlay
-                  width="100%"
-                  height="460"
-                  style={{ objectFit: "contain", display: "block" }}
-                  src={room.movieLink}
-                  onSeeked={(e) => handleLocalSeek(e.target.currentTime)}
-                >
-                  Your browser does not support HTML5 video.
-                </video>
+                <CustomVideoPlayer
+                  ref={playerRef}
+                  src={demoVideo || room.movieLink}
+                  title={room?.roomName || "Watch Party Stream"}
+                  onSeeked={(time) => handleLocalSeek(time)}
+                />
               )
             ) : (
               <div className="no-video-placeholder">
                 <span>🍿</span>
                 <p>No video source attached to this room.</p>
+                <div style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    className="modal-btn secondary"
+                    style={{ fontSize: "12px", padding: "8px 14px", cursor: "pointer" }}
+                    onClick={() => setDemoVideo("https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8")}
+                  >
+                    🎬 Load Multi-Audio/Subtitles Demo
+                  </button>
+                  <button
+                    className="modal-btn secondary"
+                    style={{ fontSize: "12px", padding: "8px 14px", cursor: "pointer" }}
+                    onClick={() => setDemoVideo("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8")}
+                  >
+                    🍿 Load Big Buck Bunny HLS
+                  </button>
+                </div>
               </div>
             )}
           </div>
+          {demoVideo && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "rgba(147, 51, 234, 0.15)",
+              border: "1px solid rgba(168, 85, 247, 0.3)",
+              borderRadius: "10px",
+              padding: "8px 14px",
+              fontSize: "12px",
+              color: "#e2e8f0",
+              marginTop: "10px"
+            }}>
+              <span>✨ <b>Demo Multi-Audio Stream Active:</b> Tears of Steel HLS (Multiple audio tracks & subtitles)</span>
+              <button
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#f472b6",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+                onClick={() => setDemoVideo(null)}
+              >
+                ✕ Reset to Room Video
+              </button>
+            </div>
+          )}
 
           {/* MEMBERS PANEL */}
           <div className="members-panel">

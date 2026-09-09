@@ -302,15 +302,15 @@ function CreateRoomPage() {
               }}
             >
               <div className="source-card-header">
-                <span className="source-icon">🔗</span>
+                <span className="source-icon">🎬</span>
                 <div>
-                  <h4>YouTube Link</h4>
-                  <p>Paste any YouTube URL or video link</p>
+                  <h4>Video or Stream Link</h4>
+                  <p>HLS streams (.m3u8), MP4/WebM, or YouTube</p>
                 </div>
               </div>
               <input
                 type="text"
-                placeholder="https://youtu.be/..."
+                placeholder="Paste .m3u8, direct video URL, or YouTube link..."
                 value={movieLink}
                 onFocus={() => {
                   setActiveTab("link");
@@ -324,6 +324,51 @@ function CreateRoomPage() {
                 disabled={loading || uploading}
                 className="source-input"
               />
+              <div className="demo-stream-pills" style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "10px" }}>
+                <span style={{ fontSize: "11px", color: "#94a3b8", alignSelf: "center" }}>Quick Demos:</span>
+                <button
+                  type="button"
+                  style={{
+                    background: "rgba(147, 51, 234, 0.2)",
+                    border: "1px solid rgba(168, 85, 247, 0.4)",
+                    color: "#c084fc",
+                    borderRadius: "6px",
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMovieLink("https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8");
+                    setActiveTab("link");
+                    setSelectedFile(null);
+                  }}
+                >
+                  🎧 Multi-Audio & Subtitles HLS
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    background: "rgba(6, 182, 212, 0.2)",
+                    border: "1px solid rgba(6, 182, 212, 0.4)",
+                    color: "#22d3ee",
+                    borderRadius: "6px",
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMovieLink("https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
+                    setActiveTab("link");
+                    setSelectedFile(null);
+                  }}
+                >
+                  🍿 Big Buck Bunny HLS
+                </button>
+              </div>
             </div>
 
             <div className="or-divider">
