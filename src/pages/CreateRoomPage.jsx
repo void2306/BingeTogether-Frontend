@@ -13,9 +13,13 @@ function CreateRoomPage() {
   const [roomType, setRoomType] = useState("");
   const [movieLink, setMovieLink] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
-  const [activeTab, setActiveTab] = useState(null);// 'link' or 'upload'
+  const [activeTab, setActiveTab] = useState(null); // 'link' or 'upload'
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Upload Progress & ETA States
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   // Success Modal State
   const [createdRoom, setCreatedRoom] = useState(null);
@@ -26,10 +30,39 @@ function CreateRoomPage() {
     if (savedUsername) setUsername(savedUsername);
   }, []);
 
-  // ☁️ AWS S3 Upload Execution
+  // Format seconds to clean readable text
+  const formatTimeRemaining = (seconds) => {
+    if (seconds === null || isNaN(seconds) || seconds < 0) return "";
+    if (seconds >= 60) {
+      const minutes = Math.ceil(seconds / 60);
+      return `~${minutes} min left`;
+    }
+    return `~${seconds}s left`;
+  };
+
+  // Safe file selection handler with 500MB guard
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const MAX_SIZE_MB = 500;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      alert(`File size exceeds ${MAX_SIZE_MB}MB. Please select a smaller video file.`);
+      e.target.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
+    setActiveTab("upload");
+    setMovieLink("");
+  };
+
+  // Direct Binary Upload Execution with Real-Time Progress Tracking
   const uploadVideoToS3 = async (file) => {
     const token = localStorage.getItem("token");
     setUploading(true);
+    setUploadProgress(0);
+    setTimeLeft(null);
 
     try {
       const presignRes = await fetch(
@@ -45,29 +78,54 @@ function CreateRoomPage() {
       );
 
       if (!presignRes.ok) {
-        throw new Error("Failed to fetch AWS S3 presigned upload URL from server.");
+        throw new Error("Failed to fetch presigned upload URL from server.");
       }
 
       const { uploadUrl, fileUrl } = await presignRes.json();
 
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type || "video/mp4",
-        },
-        body: file,
-      });
+      // Zero-dependency binary transfer using XMLHttpRequest for real-time progress events
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const startTime = Date.now();
 
-      if (!uploadRes.ok) {
-        throw new Error("Direct S3 binary transfer failed.");
-      }
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded * 100) / event.total);
+            setUploadProgress(percent);
+
+            const elapsedSec = (Date.now() - startTime) / 1000;
+            const uploadSpeed = event.loaded / elapsedSec; // bytes per second
+            const remainingBytes = event.total - event.loaded;
+            const remainingSec = uploadSpeed > 0 ? Math.round(remainingBytes / uploadSpeed) : null;
+
+            setTimeLeft(remainingSec);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(xhr.response);
+          } else {
+            reject(new Error(`Storage direct transfer rejected with status ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error occurred during storage binary upload."));
+        xhr.ontimeout = () => reject(new Error("Upload timed out. Please check your internet connection."));
+
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+        xhr.send(file);
+      });
 
       setUploading(false);
       return fileUrl;
     } catch (err) {
       setUploading(false);
-      console.error("AWS S3 Upload Error:", err);
-      alert(`S3 Upload Error: ${err.message}`);
+      setUploadProgress(0);
+      setTimeLeft(null);
+      console.error("Storage Upload Error:", err);
+      alert(`Upload Error: ${err.message}`);
       return null;
     }
   };
@@ -293,7 +351,7 @@ function CreateRoomPage() {
 
           {/* Source Options with OR Divider */}
           <div className="source-section-wrapper">
-            {/* Option A: YouTube Card */}
+            {/* Option A: Link Card */}
             <div
               className={`source-card ${activeTab === "link" ? "selected-glow" : ""}`}
               onClick={() => {
@@ -395,13 +453,7 @@ function CreateRoomPage() {
                 <input
                   type="file"
                   accept="video/mp4,video/mkv,video/webm"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
-                      setSelectedFile(e.target.files[0]);
-                      setActiveTab("upload");
-                      setMovieLink("");
-                    }
-                  }}
+                  onChange={handleFileSelect}
                   disabled={loading || uploading}
                   hidden
                 />
@@ -418,14 +470,27 @@ function CreateRoomPage() {
             </div>
           </div>
 
-          {/* Submit Button */}
+          {/* Real-time Upload Progress Track */}
+          {uploading && (
+            <div className="upload-progress-track">
+              <div
+                className="upload-progress-fill"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
+
+          {/* Submit Button with Live Progress Display */}
           <button
             className="submit-create-btn"
             onClick={createRoom}
             disabled={loading || uploading}
           >
             {uploading ? (
-              <span className="popcorn-loader">🍿 Uploading MP4 to AWS S3...</span>
+              <span className="popcorn-loader">
+                🍿 Uploading Video: {uploadProgress}%
+                {timeLeft !== null && ` (${formatTimeRemaining(timeLeft)})`}
+              </span>
             ) : loading ? (
               <span className="popcorn-loader">🍿 Creating your watch room...</span>
             ) : (
