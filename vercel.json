@@ -1,14 +1,15 @@
-{
-  "version": 2,
-  "builds": [
+﻿{
+  "headers": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build"
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
+      ]
     }
   ],
-  "env": {
-    "VITE_API_URL": "https://bingetogether.onrender.com"
-  },
   "rewrites": [
     {
       "source": "/(.*)",

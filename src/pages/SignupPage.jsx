@@ -211,15 +211,15 @@ function SignupPage() {
           </div>
 
           <div className="google-btn-wrapper">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => alert("Google signup sequence failed to fire up.")}
-              disabled={loading}
-              theme="filled_blue"
-              shape="rectangular"
-              width="100%"
-            />
-          </div>
+  <GoogleLogin
+    onSuccess={handleGoogleSuccess}
+    onError={() => alert("Google signup sequence failed to fire up.")}
+    disabled={loading}
+    theme="filled_blue"
+    shape="rectangular"
+    width={320}
+  />
+</div>
 
           <div className="auth-footer">
             Already have an account? <Link to="/login">Login</Link>
