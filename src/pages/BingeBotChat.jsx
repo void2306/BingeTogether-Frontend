@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './BingeBotChat.css'; // Optional styling file
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'https://bingetogether-backend.up.railway.app'; // Fallback to your live backend domain
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'https://bingetogether.onrender.com'; // Fallback to your live backend domain
 
 const BingeBotChat = ({ roomId, playerRef }) => {
   const [messages, setMessages] = useState([
