@@ -210,14 +210,14 @@ function SignupPage() {
             <span>or</span>
           </div>
 
-          <div className="google-btn-wrapper">
+     <div className="google-btn-wrapper">
   <GoogleLogin
     onSuccess={handleGoogleSuccess}
     onError={() => alert("Google signup sequence failed to fire up.")}
     disabled={loading}
     theme="filled_blue"
     shape="rectangular"
-    width={320}
+    ux_mode="redirect"
   />
 </div>
 
