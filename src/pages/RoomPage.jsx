@@ -6,6 +6,14 @@ import SockJS from "sockjs-client";
 import { API_BASE_URL, WS_BASE_URL } from "../config";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
 
+// Free Google STUN Servers
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
+
 function RoomPage() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
@@ -43,6 +51,17 @@ function RoomPage() {
   const [botInput, setBotInput] = useState("");
   const [isBotLoading, setIsBotLoading] = useState(false);
 
+  // 📹 WebRTC Audio & Video States
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStreams, setRemoteStreams] = useState({}); // { [senderId]: MediaStream }
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isMediaActive, setIsMediaActive] = useState(false);
+
+  const peerConnectionsRef = useRef({}); // { [peerId]: RTCPeerConnection }
+  const localStreamRef = useRef(null);
+  const localVideoRef = useRef(null);
+
   // Read/Save room members persistent map
   const getStoredRoomNames = () => {
     try {
@@ -64,7 +83,6 @@ function RoomPage() {
     }
   };
 
-  // Register current user immediately
   useEffect(() => {
     if (currentUserId && currentUsername) {
       saveStoredRoomName(currentUserId, currentUsername);
@@ -79,6 +97,140 @@ function RoomPage() {
     botMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // -------------------------------------------------------------
+  // 🎙️ WebRTC Engine Setup
+  // -------------------------------------------------------------
+  const startMedia = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsMediaActive(true);
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      // Notify others in room to start WebRTC handshake
+      if (stompClientRef.current && stompClientRef.current.connected) {
+        stompClientRef.current.publish({
+          destination: `/app/room/${roomCode}/sync`,
+          body: JSON.stringify({
+            sender: currentUsername,
+            userId: currentUserId,
+            action: "WEBRTC_JOINED",
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("Failed to access camera/mic:", err);
+      alert("Unable to access camera and microphone. Please check browser permissions.");
+    }
+  };
+
+  const stopMedia = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    setLocalStream(null);
+    setIsMediaActive(false);
+
+    // Close all open peer connections
+    Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
+    peerConnectionsRef.current = {};
+    setRemoteStreams({});
+  };
+
+  const toggleMute = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoOff(!videoTrack.enabled);
+      }
+    }
+  };
+
+  // WebRTC Peer Connection Factory
+  const createPeerConnection = (targetUserId) => {
+    if (peerConnectionsRef.current[targetUserId]) {
+      return peerConnectionsRef.current[targetUserId];
+    }
+
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+
+    // Add local tracks to send to peer
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current);
+      });
+    }
+
+    // Capture incoming remote tracks
+    pc.ontrack = (event) => {
+      const [remoteStream] = event.streams;
+      if (remoteStream) {
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [targetUserId]: remoteStream,
+        }));
+      }
+    };
+
+    // Send candidate back through Spring Boot STOMP relay
+    pc.onicecandidate = (event) => {
+      if (event.candidate && stompClientRef.current?.connected) {
+        stompClientRef.current.publish({
+          destination: `/app/room/${roomCode}/webrtc/candidate`,
+          body: JSON.stringify({
+            senderId: currentUserId,
+            targetId: targetUserId,
+            candidate: event.candidate,
+          }),
+        });
+      }
+    };
+
+    peerConnectionsRef.current[targetUserId] = pc;
+    return pc;
+  };
+
+  // Initiate an offer to another peer
+  const callPeer = async (targetUserId) => {
+    const pc = createPeerConnection(targetUserId);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    if (stompClientRef.current?.connected) {
+      stompClientRef.current.publish({
+        destination: `/app/room/${roomCode}/webrtc/offer`,
+        body: JSON.stringify({
+          senderId: currentUserId,
+          targetId: targetUserId,
+          offer: offer,
+        }),
+      });
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Data Fetching
+  // -------------------------------------------------------------
   const fetchMembersList = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -202,14 +354,12 @@ function RoomPage() {
     }
   };
 
-  // 🤖 Handler to send private message to BingeBot AI Endpoint
   const sendBotMessage = async () => {
     if (!botInput.trim() || isBotLoading) return;
 
     const userText = botInput.trim();
     setBotInput("");
 
-    // ⏱️ Get current video timestamp
     let currentSeconds = 0.0;
     if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
       currentSeconds = playerRef.current.getCurrentTime() || 0.0;
@@ -279,6 +429,7 @@ function RoomPage() {
   };
 
   const leaveRoom = async () => {
+    stopMedia();
     if (!room?.id) return;
     try {
       const token = localStorage.getItem("token");
@@ -375,7 +526,6 @@ function RoomPage() {
               setTimeout(() => {
                 if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
                   const currentTime = playerRef.current.getCurrentTime();
-                  console.log("[USER-SEEK] Manual timeline slider scrub captured:", currentTime);
                   handleLocalSeek(currentTime);
                 }
               }, 250); 
@@ -398,6 +548,9 @@ function RoomPage() {
     };
   }, [room?.movieLink]);
 
+  // -------------------------------------------------------------
+  // STOMP WebSocket & WebRTC Signals Listener
+  // -------------------------------------------------------------
   useEffect(() => {
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_BASE_URL),
@@ -415,6 +568,7 @@ function RoomPage() {
           })
         });
 
+        // 1. Video Playback & General Sync
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
           const packetSender = payload.sender || payload.username || payload.nickname;
@@ -428,11 +582,62 @@ function RoomPage() {
             return; 
           }
 
+          // If someone turned on camera, initiate peer call
+          if (payload.action === "WEBRTC_JOINED" && localStreamRef.current) {
+            callPeer(packetUserId);
+          }
+
           if ((payload.targetTime !== undefined || payload.action === "SEEK_REQUEST")) {
             setPendingSync({
               sender: packetSender || "Someone",
               targetTime: Number(payload.targetTime)
             });
+          }
+        });
+
+        // 2. WebRTC Offer Receiver
+        client.subscribe(`/topic/room/${roomCode}/webrtc/offer`, async (msg) => {
+          const data = JSON.parse(msg.body);
+          if (Number(data.targetId) !== Number(currentUserId)) return;
+
+          const pc = createPeerConnection(data.senderId);
+          await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          client.publish({
+            destination: `/app/room/${roomCode}/webrtc/answer`,
+            body: JSON.stringify({
+              senderId: currentUserId,
+              targetId: data.senderId,
+              answer: answer,
+            }),
+          });
+        });
+
+        // 3. WebRTC Answer Receiver
+        client.subscribe(`/topic/room/${roomCode}/webrtc/answer`, async (msg) => {
+          const data = JSON.parse(msg.body);
+          if (Number(data.targetId) !== Number(currentUserId)) return;
+
+          const pc = peerConnectionsRef.current[data.senderId];
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          }
+        });
+
+        // 4. WebRTC ICE Candidate Receiver
+        client.subscribe(`/topic/room/${roomCode}/webrtc/candidate`, async (msg) => {
+          const data = JSON.parse(msg.body);
+          if (Number(data.targetId) !== Number(currentUserId)) return;
+
+          const pc = peerConnectionsRef.current[data.senderId];
+          if (pc && data.candidate) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (e) {
+              console.error("Error adding ICE candidate:", e);
+            }
           }
         });
       }
@@ -442,13 +647,13 @@ function RoomPage() {
     stompClientRef.current = client;
 
     return () => {
+      stopMedia();
       if (stompClientRef.current) stompClientRef.current.deactivate();
     };
   }, [roomCode, currentUsername]);
 
   const handleLocalSeek = (seconds) => {
     const client = stompClientRef.current;
-
     if (client && client.connected) {
       const syncPayload = {
         sender: currentUsername, 
@@ -486,7 +691,6 @@ function RoomPage() {
     setPendingSync(null);
   };
 
-  // 🎯 Pure Member Name Resolver
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? currentUsername : `Member #${idx + 1}`;
 
@@ -606,6 +810,7 @@ function RoomPage() {
       {/* MAIN LAYOUT */}
       <div className="room-content-layout">
         <div className="left-stage-column">
+          {/* VIDEO PLAYER FRAME */}
           <div className="video-player-frame">
             {(demoVideo || room?.movieLink) ? (
               isYouTubeUrl(demoVideo || room?.movieLink) ? (
@@ -650,6 +855,60 @@ function RoomPage() {
               </div>
             )}
           </div>
+
+          {/* 📹 WEBRTC SOCIAL CONTROLS & WEBCAM GRID */}
+          <div className="webrtc-stage-bar">
+            {!isMediaActive ? (
+              <button className="join-media-btn" onClick={startMedia}>
+                📹 Join Voice & Video
+              </button>
+            ) : (
+              <div className="active-media-controls">
+                <button className={`media-toggle-btn ${isMuted ? "muted" : ""}`} onClick={toggleMute}>
+                  {isMuted ? "🔇 Unmute Mic" : "🎙️ Mute Mic"}
+                </button>
+                <button className={`media-toggle-btn ${isVideoOff ? "video-off" : ""}`} onClick={toggleVideo}>
+                  {isVideoOff ? "📷 Turn Camera On" : "🎥 Turn Camera Off"}
+                </button>
+                <button className="leave-media-btn" onClick={stopMedia}>
+                  Disconnect Media
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* FLOATING WEBCAM STREAM DOCK */}
+          {isMediaActive && (
+            <div className="webrtc-floating-dock">
+              {/* Local User Self-Preview */}
+              <div className="webcam-tile local-tile">
+                <video
+                  ref={(video) => {
+                    if (video && localStream) video.srcObject = localStream;
+                  }}
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                <span className="webcam-label">{currentUsername} (You)</span>
+              </div>
+
+              {/* Remote Peers Video Streams */}
+              {Object.entries(remoteStreams).map(([peerId, stream]) => (
+                <div key={peerId} className="webcam-tile">
+                  <video
+                    ref={(video) => {
+                      if (video && stream) video.srcObject = stream;
+                    }}
+                    autoPlay
+                    playsInline
+                  />
+                  <span className="webcam-label">User #{peerId}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {demoVideo && (
             <div style={{
               display: "flex",
