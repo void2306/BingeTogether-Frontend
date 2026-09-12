@@ -1,5 +1,5 @@
 /* =========================================================
-   BINGETOGETHER WATCH ROOM STYLES (GOOGLE MEET-STYLE)
+   BINGETOGETHER WATCH ROOM STYLES (PARTY CAM & VOICE)
    ========================================================= */
 
 .room-container {
@@ -181,10 +181,10 @@
 }
 
 /* =========================================================
-   3. GOOGLE MEET-STYLE INDEPENDENT VIDEO DOCK
+   3. PARTY CAM & VOICE STAGE
    ========================================================= */
 
-.google-meet-stage {
+.party-cam-stage {
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
@@ -195,7 +195,7 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
-.meet-stage-header {
+.party-cam-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -205,13 +205,13 @@
   padding-bottom: 12px;
 }
 
-.meet-header-title {
+.party-header-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.meet-header-title h3 {
+.party-header-title h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
@@ -233,25 +233,27 @@
   100% { transform: scale(0.95); opacity: 0.8; }
 }
 
-.meet-mode-tag {
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+.party-cam-tag {
+  background: rgba(46, 213, 115, 0.15);
+  color: #2ed573;
+  border: 1px solid rgba(46, 213, 115, 0.3);
   font-size: 10.5px;
   padding: 2px 7px;
   border-radius: 5px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Control Buttons */
-.meet-controls-bar {
+.party-controls-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.meet-btn {
+.party-btn {
   border: none;
   padding: 8px 14px;
   border-radius: 10px;
@@ -264,69 +266,69 @@
   gap: 6px;
 }
 
-.meet-btn.primary-join {
+.party-btn.primary-join {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
 }
 
-.meet-btn.primary-join:hover {
+.party-btn.primary-join:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.meet-btn.camera-join {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+.party-btn.camera-join {
+  background: linear-gradient(135deg, #7c5dfa, #5b36f5);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 14px rgba(124, 93, 250, 0.3);
 }
 
-.meet-btn.camera-join:hover {
+.party-btn.camera-join:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  box-shadow: 0 6px 20px rgba(124, 93, 250, 0.45);
 }
 
-.meet-btn.btn-neutral {
+.party-btn.btn-neutral {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
-.meet-btn.btn-neutral:hover {
+.party-btn.btn-neutral:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.meet-btn.btn-active {
+.party-btn.btn-active {
   background: rgba(46, 213, 115, 0.15);
   border: 1px solid rgba(46, 213, 115, 0.4);
   color: #2ed573;
 }
 
-.meet-btn.btn-danger {
+.party-btn.btn-danger {
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.4);
   color: #fca5a5;
 }
 
-.meet-btn.btn-leave {
+.party-btn.btn-leave {
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.3);
   color: #ef4444;
 }
 
-.meet-btn.btn-leave:hover {
+.party-btn.btn-leave:hover {
   background: #ef4444;
   color: #ffffff;
 }
 
-/* 4. GOOGLE MEET PARTICIPANT TILES GRID */
-.meet-tiles-grid {
+/* 4. PARTICIPANT TILES GRID */
+.party-tiles-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   min-height: 120px;
 }
 
-.empty-meet-placeholder {
+.empty-party-placeholder {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -338,7 +340,7 @@
   font-size: 13px;
 }
 
-.meet-icon-large {
+.party-icon-large {
   font-size: 32px;
   margin-bottom: 6px;
   opacity: 0.6;
@@ -360,7 +362,7 @@
 }
 
 .participant-tile.local-participant {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(124, 93, 250, 0.4);
 }
 
 .participant-video {
@@ -374,7 +376,7 @@
   transform: scaleX(-1);
 }
 
-/* Camera-Off Google Meet Avatar */
+/* Camera-Off Avatar */
 .avatar-placeholder-container {
   display: flex;
   flex-direction: column;
@@ -386,18 +388,18 @@
   background: radial-gradient(circle, #1a1a2b 0%, #0d0d17 100%);
 }
 
-.google-meet-avatar {
+.party-avatar-circle {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #3b82f6);
+  background: linear-gradient(135deg, #7c5dfa, #4831d4);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 15px rgba(124, 93, 250, 0.35);
 }
 
 .camera-off-indicator {

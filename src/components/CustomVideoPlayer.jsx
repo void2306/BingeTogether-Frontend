@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import Hls from "hls.js";
 import "./CustomVideoPlayer.css";
+import { getMemberColor } from "../utils/avatarColors";
 
 const CustomVideoPlayer = forwardRef(
   (
@@ -16,6 +17,8 @@ const CustomVideoPlayer = forwardRef(
       title = "Live Stream",
       autoPlay = true,
       memberPositions = {},
+      currentUsername = "You",
+      currentUserId = null,
       onSeeked,
       onPlay,
       onPause,
@@ -81,17 +84,35 @@ const CustomVideoPlayer = forwardRef(
     useImperativeHandle(
       ref,
       () => ({
-        getCurrentTime: () => videoRef.current?.currentTime || 0,
+        getCurrentTime: () => {
+          if (videoRef.current && typeof videoRef.current.currentTime === "number") {
+            return videoRef.current.currentTime;
+          }
+          return currentTime || 0;
+        },
+        isPlaying: () => {
+          if (videoRef.current) {
+            return !videoRef.current.paused;
+          }
+          return isPlaying;
+        },
+        getDuration: () => {
+          if (videoRef.current && typeof videoRef.current.duration === "number") {
+            return videoRef.current.duration;
+          }
+          return duration || 0;
+        },
         seekTo: (seconds) => {
           if (videoRef.current && typeof seconds === "number" && !isNaN(seconds)) {
             videoRef.current.currentTime = seconds;
+            setCurrentTime(seconds);
           }
         },
         play: () => videoRef.current?.play(),
         pause: () => videoRef.current?.pause(),
         getInternalPlayer: () => videoRef.current,
       }),
-      []
+      [currentTime, duration, isPlaying]
     );
 
     // Format seconds to mm:ss or hh:mm:ss
@@ -1175,7 +1196,32 @@ const CustomVideoPlayer = forwardRef(
               <div className="timeline-thumb-glow" />
             </div>
 
-            {/* 👥 REAL-TIME REMOTE MEMBER POSITION PINS */}
+            {/* 👤 1. LOCAL USER'S OWN FLOATING AVATAR PIN (Tracks local progress in real-time) */}
+            {duration > 0 && (
+              <div
+                className={`timeline-member-pin is-local-user ${
+                  isPlaying ? "is-playing" : "is-paused"
+                }`}
+                style={{
+                  left: `${currentProgressPercent}%`,
+                  "--pin-color": getMemberColor(currentUserId || currentUsername || "local"),
+                }}
+                title={`You (${currentUsername}): ${formatTime(currentTime)}`}
+              >
+                <div className="pin-avatar local-user-avatar">
+                  {(currentUsername || "Y").charAt(0).toUpperCase()}
+                </div>
+                <div className="pin-tooltip">
+                  <span className="pin-name">{currentUsername} (You)</span>
+                  <span className="pin-time">{formatTime(currentTime)}</span>
+                  <span className="pin-status">
+                    {isPlaying ? "▶ Playing" : "⏸ Paused"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 👥 2. REAL-TIME REMOTE MEMBER POSITION PINS */}
             {duration > 0 &&
               Object.values(memberPositions || {}).map((member) => {
                 const percent = Math.max(
@@ -1185,7 +1231,7 @@ const CustomVideoPlayer = forwardRef(
 
                 return (
                   <div
-                    key={member.userId}
+                    key={member.key || member.sessionId || member.userId}
                     className={`timeline-member-pin ${
                       member.isPlaying ? "is-playing" : "is-paused"
                     }`}

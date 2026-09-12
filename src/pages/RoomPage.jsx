@@ -16,7 +16,7 @@ const RTC_CONFIG = {
 };
 
 /**
- * Google Meet-Style Participant Tile Subcomponent
+ * Participant Video Tile Subcomponent
  * Displays live video when camera is ON, or an animated Avatar placeholder when camera is OFF.
  * Remote audio plays seamlessly without echoes.
  */
@@ -64,9 +64,9 @@ function ParticipantVideoTile({
           className={`participant-video ${isLocal ? "mirrored" : ""}`}
         />
       ) : (
-        /* 2. Google Meet Avatar Placeholder when Camera is OFF */
+        /* 2. Avatar Placeholder when Camera is OFF */
         <div className="avatar-placeholder-container">
-          <div className="google-meet-avatar">
+          <div className="party-avatar-circle">
             {avatarInitial || (name ? name.charAt(0).toUpperCase() : "U")}
           </div>
           <span className="camera-off-indicator">Camera Off</span>
@@ -117,6 +117,9 @@ function RoomPage() {
   const [pendingSync, setPendingSync] = useState(null);
   const [demoVideo, setDemoVideo] = useState(null);
   const [memberPositions, setMemberPositions] = useState({});
+  const clientSessionIdRef = useRef(
+    `sess_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`
+  );
 
   // 🤖 BingeBot State & Controls
   const [activeTab, setActiveTab] = useState("chat");
@@ -132,10 +135,19 @@ function RoomPage() {
   const [botInput, setBotInput] = useState("");
   const [isBotLoading, setIsBotLoading] = useState(false);
 
-  // 📹 Google Meet-Style Independent Media States
+  // 📹 Independent Media States
   const [isInCall, setIsInCall] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+
+  // REFS TO PREVENT STOMP EFFECT TEARDOWN ON STATE CHANGES
+  const isInCallRef = useRef(false);
+  const isCameraOnRef = useRef(false);
+  const isMutedRef = useRef(false);
+
+  useEffect(() => { isInCallRef.current = isInCall; }, [isInCall]);
+  useEffect(() => { isCameraOnRef.current = isCameraOn; }, [isCameraOn]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({}); // { [peerId]: MediaStream }
@@ -205,14 +217,21 @@ function RoomPage() {
     let currSeconds = 0;
     let isPlaying = false;
     if (playerRef.current) {
-      currSeconds = playerRef.current.getCurrentTime?.() || 0;
-      const internal = playerRef.current.getInternalPlayer?.();
-      isPlaying = internal ? !internal.paused : false;
-    } else {
+      if (typeof playerRef.current.getCurrentTime === "function") {
+        currSeconds = playerRef.current.getCurrentTime() || 0;
+      }
+      if (typeof playerRef.current.isPlaying === "function") {
+        isPlaying = playerRef.current.isPlaying();
+      } else {
+        const internal = playerRef.current.getInternalPlayer?.();
+        isPlaying = internal ? !internal.paused : false;
+      }
+    }
+    if (!currSeconds) {
       const html5Video = document.getElementById("room-video-player");
-      if (html5Video) {
+      if (html5Video && html5Video.currentTime) {
         currSeconds = html5Video.currentTime || 0;
-        isPlaying = !html5Video.paused;
+        if (!isPlaying) isPlaying = !html5Video.paused;
       }
     }
     return { currSeconds, isPlaying };
@@ -231,6 +250,7 @@ function RoomPage() {
         body: JSON.stringify({
           sender: currentUsername,
           userId: currentUserId,
+          sessionId: clientSessionIdRef.current,
           action: "POSITION_HEARTBEAT",
           currentTime: timeToSend,
           isPlaying: playToSend,
@@ -240,11 +260,11 @@ function RoomPage() {
     [roomCode, currentUsername, currentUserId, getCurrentPlaybackState]
   );
 
-  // Periodic heartbeat emission (every 1.5 seconds while connected)
+  // Periodic heartbeat emission (every 1 second for silky timeline movement)
   useEffect(() => {
     const interval = setInterval(() => {
       broadcastHeartbeat();
-    }, 1500);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [broadcastHeartbeat]);
@@ -271,7 +291,7 @@ function RoomPage() {
   }, []);
 
   // -------------------------------------------------------------
-  // 🎙️ Google Meet-Style WebRTC Engine
+  // 🎙️ WebRTC Engine
   // -------------------------------------------------------------
 
   /**
@@ -380,13 +400,12 @@ function RoomPage() {
 
   /**
    * Join the Meeting:
-   * Initializes microphone by default (or watch-only if denied) without forcing camera ON!
+   * Initializes microphone without forcing camera ON!
    */
   const joinMeeting = async () => {
     try {
       let stream = null;
       try {
-        // Try getting audio first
         stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: false,
@@ -399,12 +418,14 @@ function RoomPage() {
       localStreamRef.current = stream;
       setLocalStream(stream);
       setIsInCall(true);
+      isInCallRef.current = true;
       setIsCameraOn(false);
+      isCameraOnRef.current = false;
       setIsMuted(false);
+      isMutedRef.current = false;
 
       broadcastMediaState(false, false);
 
-      // Announce join to everyone in the room
       if (stompClientRef.current?.connected) {
         stompClientRef.current.publish({
           destination: `/app/room/${roomCode}/sync`,
@@ -431,8 +452,11 @@ function RoomPage() {
     }
     setLocalStream(null);
     setIsInCall(false);
+    isInCallRef.current = false;
     setIsCameraOn(false);
+    isCameraOnRef.current = false;
     setIsMuted(false);
+    isMutedRef.current = false;
 
     Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
     peerConnectionsRef.current = {};
@@ -453,14 +477,15 @@ function RoomPage() {
 
   /**
    * Independent Camera Toggle:
-   * Turns camera ON or OFF independently without affecting microphone or other participants.
+   * Turns camera ON or OFF independently without affecting microphone or resetting STOMP.
    */
   const toggleCamera = async () => {
-    if (!isInCall) {
-      await joinMeeting();
+    if (!isInCallRef.current) {
+      setIsInCall(true);
+      isInCallRef.current = true;
     }
 
-    if (isCameraOn) {
+    if (isCameraOnRef.current) {
       // Turn Camera OFF
       if (localStreamRef.current) {
         const videoTracks = localStreamRef.current.getVideoTracks();
@@ -476,10 +501,12 @@ function RoomPage() {
             sender.replaceTrack(null).catch(() => {});
           }
         });
+        setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
       }
 
       setIsCameraOn(false);
-      broadcastMediaState(false, isMuted);
+      isCameraOnRef.current = false;
+      broadcastMediaState(false, isMutedRef.current);
     } else {
       // Turn Camera ON
       try {
@@ -502,12 +529,12 @@ function RoomPage() {
           } else {
             pc.addTrack(newVideoTrack, localStreamRef.current);
           }
-          // Renegotiate with peer
           await callPeer(Number(peerId));
         }
 
         setIsCameraOn(true);
-        broadcastMediaState(true, isMuted);
+        isCameraOnRef.current = true;
+        broadcastMediaState(true, isMutedRef.current);
       } catch (err) {
         console.error("Failed to access camera:", err);
         alert("Camera permission denied or camera unavailable.");
@@ -520,13 +547,34 @@ function RoomPage() {
    * Mutes/unmutes local microphone without affecting camera.
    */
   const toggleMute = () => {
+    if (!isInCallRef.current) {
+      joinMeeting();
+      return;
+    }
+
     if (localStreamRef.current) {
       const audioTracks = localStreamRef.current.getAudioTracks();
       if (audioTracks.length > 0) {
-        const nextMuted = !isMuted;
+        const nextMuted = !isMutedRef.current;
         audioTracks.forEach((t) => (t.enabled = !nextMuted));
         setIsMuted(nextMuted);
-        broadcastMediaState(isCameraOn, nextMuted);
+        isMutedRef.current = nextMuted;
+        broadcastMediaState(isCameraOnRef.current, nextMuted);
+      } else {
+        // If joined with no mic track, capture mic track now
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((micStream) => {
+          const micTrack = micStream.getAudioTracks()[0];
+          localStreamRef.current.addTrack(micTrack);
+          setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
+          Object.values(peerConnectionsRef.current).forEach((pc) => {
+            pc.addTrack(micTrack, localStreamRef.current);
+          });
+          setIsMuted(false);
+          isMutedRef.current = false;
+          broadcastMediaState(isCameraOnRef.current, false);
+        }).catch((err) => {
+          console.error("Failed to capture mic:", err);
+        });
       }
     }
   };
@@ -807,6 +855,7 @@ function RoomPage() {
       body: JSON.stringify({
         sender: currentUsername,
         userId: currentUserId,
+        sessionId: clientSessionIdRef.current,
         action: "PLAY",
       }),
     });
@@ -820,6 +869,7 @@ function RoomPage() {
       body: JSON.stringify({
         sender: currentUsername,
         userId: currentUserId,
+        sessionId: clientSessionIdRef.current,
         action: "PAUSE",
       }),
     });
@@ -834,6 +884,7 @@ function RoomPage() {
         body: JSON.stringify({
           sender: currentUsername,
           userId: currentUserId,
+          sessionId: clientSessionIdRef.current,
           action: "SEEK_REQUEST",
           targetTime: seconds,
         }),
@@ -922,6 +973,8 @@ function RoomPage() {
 
   // -------------------------------------------------------------
   // STOMP WebSocket & WebRTC Signals Listener
+  // CRITICAL: Effect ONLY depends on roomCode, currentUserId, currentUsername.
+  // It does NOT depend on camera/mic states, so it NEVER tears down on toggle!
   // -------------------------------------------------------------
   useEffect(() => {
     const client = new Client({
@@ -937,44 +990,61 @@ function RoomPage() {
           body: JSON.stringify({
             sender: currentUsername,
             userId: currentUserId,
+            sessionId: clientSessionIdRef.current,
             action: "ANNOUNCE",
           }),
         });
+        setTimeout(() => broadcastHeartbeat(), 400);
 
         // 1. Media Player Playback Sync & Meeting Presence Listener
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
           const packetSender = payload.sender || payload.username || payload.nickname;
           const packetUserId = Number(payload.userId);
+          const packetSessionId = payload.sessionId;
 
           if (packetUserId && packetSender) {
             saveStoredRoomName(packetUserId, packetSender);
           }
 
-          if (packetUserId === currentUserId) return;
+          // Ignore echoes from this exact tab/session
+          if (packetSessionId && packetSessionId === clientSessionIdRef.current) {
+            return;
+          }
+          if (!packetSessionId && packetUserId === currentUserId) {
+            return;
+          }
+
+          // Key for tracking member positions (enables multi-tab and multi-user testing)
+          const memberKey = packetSessionId
+            ? `${packetUserId}_${packetSessionId}`
+            : String(packetUserId);
 
           // Simultaneous Media Playback Sync & Real-Time Position Markers
           if (payload.action === "POSITION_HEARTBEAT") {
             setMemberPositions((prev) => ({
               ...prev,
-              [packetUserId]: {
+              [memberKey]: {
+                key: memberKey,
                 userId: packetUserId,
+                sessionId: packetSessionId,
                 username: packetSender || `User #${packetUserId}`,
                 currentTime: Number(payload.currentTime) || 0,
                 isPlaying: !!payload.isPlaying,
                 lastUpdated: Date.now(),
-                color: getMemberColor(packetUserId),
+                color: getMemberColor(packetUserId || packetSessionId),
               },
             }));
           } else if (payload.action === "PLAY") {
             ignoreNextSyncRef.current = true;
             playerRef.current?.play?.();
+            setTimeout(() => { ignoreNextSyncRef.current = false; }, 600);
             setMemberPositions((prev) => {
-              const existing = prev[packetUserId];
+              const existing = prev[memberKey];
               if (!existing) return prev;
               return {
                 ...prev,
-                [packetUserId]: {
+                [memberKey]: {
                   ...existing,
                   isPlaying: true,
                   lastUpdated: Date.now(),
@@ -984,12 +1054,13 @@ function RoomPage() {
           } else if (payload.action === "PAUSE") {
             ignoreNextSyncRef.current = true;
             playerRef.current?.pause?.();
+            setTimeout(() => { ignoreNextSyncRef.current = false; }, 600);
             setMemberPositions((prev) => {
-              const existing = prev[packetUserId];
+              const existing = prev[memberKey];
               if (!existing) return prev;
               return {
                 ...prev,
-                [packetUserId]: {
+                [memberKey]: {
                   ...existing,
                   isPlaying: false,
                   lastUpdated: Date.now(),
@@ -1003,11 +1074,11 @@ function RoomPage() {
               targetTime: tgt,
             });
             setMemberPositions((prev) => {
-              const existing = prev[packetUserId];
+              const existing = prev[memberKey];
               if (!existing) return prev;
               return {
                 ...prev,
-                [packetUserId]: {
+                [memberKey]: {
                   ...existing,
                   currentTime: tgt,
                   lastUpdated: Date.now(),
@@ -1018,11 +1089,12 @@ function RoomPage() {
 
           // Meeting Presence & Media State Handling
           if (payload.action === "MEETING_JOINED" || payload.action === "ANNOUNCE") {
-            // If we are currently sharing media, send an offer to the new participant
-            if (isInCall) {
+            // New joiner announced: immediately broadcast our current position!
+            broadcastHeartbeat();
+
+            if (isInCallRef.current) {
               callPeer(packetUserId);
-              // Inform new joiner of our current media state
-              broadcastMediaState(isCameraOn, isMuted);
+              broadcastMediaState(isCameraOnRef.current, isMutedRef.current);
             }
           } else if (payload.action === "MEDIA_STATE_UPDATE") {
             setPeerMediaStates((prev) => ({
@@ -1050,15 +1122,18 @@ function RoomPage() {
               return updated;
             });
             setMemberPositions((prev) => {
-              if (!prev[packetUserId]) return prev;
               const updated = { ...prev };
-              delete updated[packetUserId];
+              for (const k of Object.keys(updated)) {
+                if (k === String(packetUserId) || k.startsWith(`${packetUserId}_`)) {
+                  delete updated[k];
+                }
+              }
               return updated;
             });
           }
         });
 
-        // 2. WebRTC Offer Receiver (Even if our camera is off, we receive Person A's video!)
+        // 2. WebRTC Offer Receiver (Person B receives Person A's camera feed!)
         client.subscribe(`/topic/room/${roomCode}/webrtc/offer`, async (msg) => {
           const data = JSON.parse(msg.body);
           if (Number(data.targetId) !== currentUserId) return;
@@ -1113,7 +1188,6 @@ function RoomPage() {
               console.error("Error adding direct ICE candidate:", e);
             }
           } else {
-            // Queue candidate until setRemoteDescription completes
             if (!pendingCandidatesRef.current[data.senderId]) {
               pendingCandidatesRef.current[data.senderId] = [];
             }
@@ -1130,7 +1204,7 @@ function RoomPage() {
       leaveMeeting();
       if (stompClientRef.current) stompClientRef.current.deactivate();
     };
-  }, [roomCode, currentUserId, currentUsername, isInCall, isCameraOn, isMuted, getOrCreatePeerConnection, broadcastMediaState]);
+  }, [roomCode, currentUserId, currentUsername]);
 
   const resolveMemberName = (m, idx) => {
     if (!m) return idx === 0 ? currentUsername : `Member #${idx + 1}`;
@@ -1180,7 +1254,7 @@ function RoomPage() {
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
-  // Compile active participants for the Google Meet dock
+  // Compile active participants for the video dock
   const allParticipantIds = Array.from(
     new Set([
       ...Object.keys(remoteStreams).map(Number),
@@ -1289,6 +1363,8 @@ function RoomPage() {
                   src={demoVideo || room.movieLink}
                   title={room?.roomName || "Watch Party Stream"}
                   memberPositions={memberPositions}
+                  currentUsername={currentUsername}
+                  currentUserId={currentUserId}
                   onPlay={handleLocalPlay}
                   onPause={handleLocalPause}
                   onSeeked={(time) => handleLocalSeek(time)}
@@ -1332,30 +1408,30 @@ function RoomPage() {
             )}
           </div>
 
-          {/* 2. GOOGLE MEET-STYLE INDEPENDENT VIDEO & AUDIO DOCK */}
-          <div className="google-meet-stage">
-            <div className="meet-stage-header">
-              <div className="meet-header-title">
+          {/* 2. PARTY CAM & VOICE CHAT DOCK */}
+          <div className="party-cam-stage">
+            <div className="party-cam-header">
+              <div className="party-header-title">
                 <span className="live-pulsing-dot"></span>
-                <h3>Live Call & Video Meeting</h3>
-                <span className="meet-mode-tag">Google Meet Mode</span>
+                <h3>Party Cam & Voice</h3>
+                <span className="party-cam-tag">Live</span>
               </div>
 
               {/* Controls: Independent Mic, Camera, & Leave Call */}
-              <div className="meet-controls-bar">
+              <div className="party-controls-bar">
                 {!isInCall ? (
                   <div className="join-options-group">
-                    <button className="meet-btn primary-join" onClick={joinMeeting}>
-                      🎙️ Join Audio Only
+                    <button className="party-btn primary-join" onClick={joinMeeting}>
+                      🎙️ Join Voice Only
                     </button>
-                    <button className="meet-btn camera-join" onClick={toggleCamera}>
-                      🎥 Join With Camera
+                    <button className="party-btn camera-join" onClick={toggleCamera}>
+                      🎥 Turn Camera On
                     </button>
                   </div>
                 ) : (
                   <>
                     <button
-                      className={`meet-btn ${isMuted ? "btn-danger" : "btn-neutral"}`}
+                      className={`party-btn ${isMuted ? "btn-danger" : "btn-neutral"}`}
                       onClick={toggleMute}
                       title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
                     >
@@ -1363,7 +1439,7 @@ function RoomPage() {
                     </button>
 
                     <button
-                      className={`meet-btn ${isCameraOn ? "btn-active" : "btn-neutral"}`}
+                      className={`party-btn ${isCameraOn ? "btn-active" : "btn-neutral"}`}
                       onClick={toggleCamera}
                       title={isCameraOn ? "Turn Camera Off" : "Turn Camera On"}
                     >
@@ -1371,20 +1447,20 @@ function RoomPage() {
                     </button>
 
                     <button
-                      className="meet-btn btn-leave"
+                      className="party-btn btn-leave"
                       onClick={leaveMeeting}
-                      title="Leave Video Call"
+                      title="Disconnect Call"
                     >
-                      📞 Leave Call
+                      📞 Disconnect
                     </button>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Google Meet Participant Video / Avatar Grid */}
-            <div className="meet-tiles-grid">
-              {/* Local Participant Tile (Always shown when in call) */}
+            {/* Participant Video / Avatar Grid */}
+            <div className="party-tiles-grid">
+              {/* Local Participant Tile (Shown when in call) */}
               {isInCall && (
                 <ParticipantVideoTile
                   stream={localStream}
@@ -1421,9 +1497,9 @@ function RoomPage() {
               })}
 
               {!isInCall && allParticipantIds.length === 0 && (
-                <div className="empty-meet-placeholder">
-                  <span className="meet-icon-large">📹</span>
-                  <p>No active cameras or callers. Click <strong>Join With Camera</strong> or <strong>Join Audio Only</strong> to start!</p>
+                <div className="empty-party-placeholder">
+                  <span className="party-icon-large">📹</span>
+                  <p>Turn on your camera or mic to start chatting with your watch party!</p>
                 </div>
               )}
             </div>
