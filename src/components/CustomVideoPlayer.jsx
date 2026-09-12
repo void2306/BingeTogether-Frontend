@@ -30,6 +30,9 @@ const CustomVideoPlayer = forwardRef(
     const controlsTimeoutRef = useRef(null);
     const customTrackUrlsRef = useRef([]);
     const subtitleFileInputRef = useRef(null);
+    const audioFileInputRef = useRef(null);
+    const customAudioRef = useRef(null);
+    const customAudioUrlsRef = useRef([]);
 
     // Playback state
     const [isPlaying, setIsPlaying] = useState(false);
@@ -307,11 +310,18 @@ const CustomVideoPlayer = forwardRef(
       };
     }, [src, autoPlay]);
 
-    // Clean up created object URLs for custom subtitle blobs on unmount
+    // Clean up created object URLs for custom subtitle and audio blobs on unmount
     useEffect(() => {
-      const urls = customTrackUrlsRef.current;
+      const subUrls = customTrackUrlsRef.current;
+      const audioUrls = customAudioUrlsRef.current;
       return () => {
-        urls.forEach((url) => URL.revokeObjectURL(url));
+        subUrls.forEach((url) => URL.revokeObjectURL(url));
+        audioUrls.forEach((url) => URL.revokeObjectURL(url));
+        if (customAudioRef.current) {
+          customAudioRef.current.pause();
+          customAudioRef.current.src = "";
+          customAudioRef.current = null;
+        }
       };
     }, []);
 
@@ -323,17 +333,29 @@ const CustomVideoPlayer = forwardRef(
       const handlePlay = () => {
         setIsPlaying(true);
         resetControlsTimeout();
+        if (customAudioRef.current && customAudioRef.current.src) {
+          customAudioRef.current.play().catch(() => {});
+        }
         onPlay?.();
       };
 
       const handlePause = () => {
         setIsPlaying(false);
         setShowControls(true);
+        if (customAudioRef.current && customAudioRef.current.src) {
+          customAudioRef.current.pause();
+        }
         onPause?.();
       };
 
       const handleTimeUpdate = () => {
         setCurrentTime(video.currentTime);
+        if (customAudioRef.current && customAudioRef.current.src && !video.paused) {
+          const drift = Math.abs(customAudioRef.current.currentTime - video.currentTime);
+          if (drift > 0.35) {
+            customAudioRef.current.currentTime = video.currentTime;
+          }
+        }
         if (video.buffered.length > 0 && video.duration > 0) {
           try {
             const end = video.buffered.end(video.buffered.length - 1);
@@ -350,14 +372,23 @@ const CustomVideoPlayer = forwardRef(
 
       const handleWaiting = () => {
         setIsBuffering(true);
+        if (customAudioRef.current && customAudioRef.current.src) {
+          customAudioRef.current.pause();
+        }
       };
 
       const handlePlaying = () => {
         setIsBuffering(false);
+        if (customAudioRef.current && customAudioRef.current.src) {
+          customAudioRef.current.play().catch(() => {});
+        }
       };
 
       const handleSeeked = () => {
         setIsBuffering(false);
+        if (customAudioRef.current && customAudioRef.current.src) {
+          customAudioRef.current.currentTime = video.currentTime;
+        }
         onSeeked?.(video.currentTime);
       };
 
@@ -505,26 +536,39 @@ const CustomVideoPlayer = forwardRef(
     const changeVolume = (newVol) => {
       const video = videoRef.current;
       if (!video) return;
-      video.volume = newVol;
-      video.muted = newVol === 0;
       setVolume(newVol);
       setIsMuted(newVol === 0);
+      if (customAudioRef.current && customAudioRef.current.src) {
+        customAudioRef.current.volume = newVol;
+        customAudioRef.current.muted = newVol === 0;
+      } else {
+        video.volume = newVol;
+        video.muted = newVol === 0;
+      }
       resetControlsTimeout();
     };
 
     const toggleMute = () => {
       const video = videoRef.current;
       if (!video) return;
-      video.muted = !video.muted;
-      setIsMuted(video.muted);
+      const nextMuted = !isMuted;
+      setIsMuted(nextMuted);
+      if (customAudioRef.current && customAudioRef.current.src) {
+        customAudioRef.current.muted = nextMuted;
+      } else {
+        video.muted = nextMuted;
+      }
       resetControlsTimeout();
-      showToast(video.muted ? "Muted" : `Volume: ${Math.round(volume * 100)}%`);
+      showToast(nextMuted ? "Muted" : `Volume: ${Math.round(volume * 100)}%`);
     };
 
     const setSpeed = (rate) => {
       const video = videoRef.current;
       if (!video) return;
       video.playbackRate = rate;
+      if (customAudioRef.current && customAudioRef.current.src) {
+        customAudioRef.current.playbackRate = rate;
+      }
       setPlaybackRate(rate);
       setActiveMenu(null);
       showToast(`Speed: ${rate}x`);
@@ -557,21 +601,100 @@ const CustomVideoPlayer = forwardRef(
       }
     };
 
-    // Audio Track Switcher
-    const selectAudioTrack = (index) => {
-      if (hlsRef.current) {
-        hlsRef.current.audioTrack = index;
-        setCurrentAudioTrack(index);
-        const selected = audioTracks[index];
-        showToast(`Audio: ${selected?.name || selected?.lang || `Track ${index + 1}`}`);
-      } else if (videoRef.current && videoRef.current.audioTracks) {
-        for (let i = 0; i < videoRef.current.audioTracks.length; i++) {
-          videoRef.current.audioTracks[i].enabled = i === index;
+    // Audio Track Switcher (HLS, Native, or Custom Uploaded)
+    const selectAudioTrack = (trackOrId) => {
+      let selected;
+      let targetId;
+
+      if (typeof trackOrId === "object" && trackOrId !== null) {
+        selected = trackOrId;
+        targetId = trackOrId.id;
+      } else {
+        targetId = trackOrId;
+        selected = audioTracks.find((t) => t.id === trackOrId) || audioTracks[trackOrId];
+      }
+
+      if (selected?.isCustom) {
+        // Mute video element to prevent audio overlap
+        if (videoRef.current) {
+          videoRef.current.muted = true;
         }
-        setCurrentAudioTrack(index);
-        showToast(`Audio: ${audioTracks[index]?.name || `Track ${index + 1}`}`);
+        if (!customAudioRef.current) {
+          customAudioRef.current = new Audio();
+        }
+        const audio = customAudioRef.current;
+        if (audio.src !== selected.src) {
+          audio.src = selected.src;
+        }
+        if (videoRef.current) {
+          audio.currentTime = videoRef.current.currentTime || 0;
+          audio.playbackRate = videoRef.current.playbackRate || 1;
+        }
+        audio.volume = isMuted ? 0 : volume;
+        audio.muted = isMuted;
+
+        if (isPlaying) {
+          audio.play().catch(() => {});
+        }
+
+        setCurrentAudioTrack(targetId);
+        showToast(`Audio: ${selected.name}`);
+      } else {
+        // Reverting to native video audio / HLS track
+        if (customAudioRef.current) {
+          customAudioRef.current.pause();
+          customAudioRef.current.src = "";
+        }
+        if (videoRef.current) {
+          videoRef.current.muted = isMuted;
+        }
+
+        if (hlsRef.current && typeof targetId === "number") {
+          hlsRef.current.audioTrack = targetId;
+          setCurrentAudioTrack(targetId);
+          showToast(`Audio: ${selected?.name || selected?.lang || `Track ${targetId + 1}`}`);
+        } else if (videoRef.current && videoRef.current.audioTracks) {
+          for (let i = 0; i < videoRef.current.audioTracks.length; i++) {
+            videoRef.current.audioTracks[i].enabled = i === targetId;
+          }
+          setCurrentAudioTrack(targetId);
+          showToast(`Audio: ${selected?.name || `Track ${targetId + 1}`}`);
+        } else {
+          setCurrentAudioTrack(0);
+          showToast("Audio: Default Video Audio");
+        }
       }
       setActiveMenu(null);
+    };
+
+    // Audio File (.mp3, .m4a, .aac, .wav) Upload Handler
+    const handleAudioFileUpload = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const blobUrl = URL.createObjectURL(file);
+      customAudioUrlsRef.current.push(blobUrl);
+
+      const cleanName = file.name.replace(/\.[^/.]+$/, "");
+      const newTrack = {
+        id: `custom-audio-${Date.now()}`,
+        name: `${cleanName} (Attached)`,
+        lang: "custom",
+        src: blobUrl,
+        isCustom: true,
+      };
+
+      setAudioTracks((prev) => {
+        const hasDefault = prev.some((t) => t.id === 0 || t.isDefault);
+        const base = hasDefault
+          ? prev
+          : [{ id: 0, name: "Default Video Audio", lang: "default", isDefault: true }, ...prev];
+        return [...base, newTrack];
+      });
+
+      selectAudioTrack(newTrack);
+      showToast(`Attached Audio: ${cleanName}`);
+      e.target.value = "";
     };
 
     // Subtitle Track Switcher
@@ -748,6 +871,15 @@ const CustomVideoPlayer = forwardRef(
           onChange={handleSubtitleFileUpload}
         />
 
+        {/* Hidden File Input for Custom Audio Tracks */}
+        <input
+          type="file"
+          ref={audioFileInputRef}
+          accept=".mp3,.m4a,.aac,.wav,.ogg,.flac"
+          style={{ display: "none" }}
+          onChange={handleAudioFileUpload}
+        />
+
         {/* The Native HTML5 Video Element */}
         <video
           ref={videoRef}
@@ -828,13 +960,28 @@ const CustomVideoPlayer = forwardRef(
                     <h4>Select Audio Track</h4>
                   </div>
                   {audioTracks.length === 0 ? (
-                    <div className="menu-empty-hint">
-                      <p>Default stereo track active.</p>
-                      <small>
-                        HLS (.m3u8) streams automatically expose alternate
-                        audio language tracks.
-                      </small>
-                    </div>
+                    <>
+                      <div className="menu-options-list">
+                        <button
+                          className={`menu-option-item ${
+                            currentAudioTrack === 0 ? "active" : ""
+                          }`}
+                          onClick={() => selectAudioTrack(0)}
+                        >
+                          <span className="option-name">Default Video Audio</span>
+                          <span className="option-badge">DEFAULT</span>
+                          {currentAudioTrack === 0 && (
+                            <span className="option-check">✓</span>
+                          )}
+                        </button>
+                      </div>
+                      <div className="menu-empty-hint">
+                        <p>Default audio stream active.</p>
+                        <small>
+                          💡 <strong>Why single track?</strong> Web browsers (unlike VLC) only demux track 0 from static MP4/MKV files. Use HLS (.m3u8) or attach an audio track below.
+                        </small>
+                      </div>
+                    </>
                   ) : (
                     <div className="menu-options-list">
                       {audioTracks.map((trk) => (
@@ -858,6 +1005,16 @@ const CustomVideoPlayer = forwardRef(
                       ))}
                     </div>
                   )}
+
+                  {/* Attach Custom Audio Action */}
+                  <div className="menu-footer-action">
+                    <button
+                      className="upload-sub-btn"
+                      onClick={() => audioFileInputRef.current?.click()}
+                    >
+                      <span>➕</span> Attach Audio Track (.mp3 / .m4a / .aac)
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -901,6 +1058,14 @@ const CustomVideoPlayer = forwardRef(
                       </button>
                     ))}
                   </div>
+
+                  {subtitleTracks.length === 0 && (
+                    <div className="menu-empty-hint" style={{ marginTop: "4px" }}>
+                      <small>
+                        💡 <strong>Why no subtitles?</strong> Browsers cannot demux embedded MKV/MP4 subtitles. Upload a .srt or .vtt file below.
+                      </small>
+                    </div>
+                  )}
 
                   {/* Upload Custom Subtitle Action */}
                   <div className="menu-footer-action">
@@ -1148,9 +1313,13 @@ const CustomVideoPlayer = forwardRef(
               >
                 <span className="control-emoji">🎧</span>
                 <span className="control-label-text">
-                  {audioTracks.length > 0
-                    ? audioTracks[currentAudioTrack]?.lang?.toUpperCase() || "Audio"
-                    : "Audio"}
+                  {(() => {
+                    const trk = audioTracks.find((t) => t.id === currentAudioTrack) || audioTracks[currentAudioTrack];
+                    if (!trk) return "Audio";
+                    return trk.lang && trk.lang !== "und" && trk.lang !== "custom" && trk.lang !== "default"
+                      ? trk.lang.toUpperCase()
+                      : trk.name?.slice(0, 8) || "Audio";
+                  })()}
                 </span>
                 {audioTracks.length > 1 && (
                   <span className="track-count-dot">{audioTracks.length}</span>
