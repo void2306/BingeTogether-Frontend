@@ -181,10 +181,11 @@
 }
 
 /* =========================================================
-   3. PARTY CAM & VOICE STAGE
+   3. PARTY CAM & VOICE INDEPENDENT VIDEO DOCK
    ========================================================= */
 
-.party-cam-stage {
+.party-cam-stage,
+.google-meet-stage {
   background: rgba(18, 18, 28, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
@@ -195,7 +196,8 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
-.party-cam-header {
+.party-stage-header,
+.meet-stage-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -205,13 +207,15 @@
   padding-bottom: 12px;
 }
 
-.party-header-title {
+.party-header-title,
+.meet-header-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.party-header-title h3 {
+.party-header-title h3,
+.meet-header-title h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
@@ -233,27 +237,28 @@
   100% { transform: scale(0.95); opacity: 0.8; }
 }
 
-.party-cam-tag {
-  background: rgba(46, 213, 115, 0.15);
-  color: #2ed573;
-  border: 1px solid rgba(46, 213, 115, 0.3);
+.party-cam-tag,
+.meet-mode-tag {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
   font-size: 10.5px;
   padding: 2px 7px;
   border-radius: 5px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* Control Buttons */
-.party-controls-bar {
+.party-controls-bar,
+.meet-controls-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.party-btn {
+.party-btn,
+.meet-btn {
   border: none;
   padding: 8px 14px;
   border-radius: 10px;
@@ -277,14 +282,14 @@
 }
 
 .party-btn.camera-join {
-  background: linear-gradient(135deg, #7c5dfa, #5b36f5);
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(124, 93, 250, 0.3);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
 }
 
 .party-btn.camera-join:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(124, 93, 250, 0.45);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
 }
 
 .party-btn.btn-neutral {
@@ -320,15 +325,17 @@
   color: #ffffff;
 }
 
-/* 4. PARTICIPANT TILES GRID */
-.party-tiles-grid {
+/* 4. PARTY CAM PARTICIPANT TILES GRID */
+.party-tiles-grid,
+.meet-tiles-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   min-height: 120px;
 }
 
-.empty-party-placeholder {
+.empty-party-placeholder,
+.empty-meet-placeholder {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
@@ -340,7 +347,8 @@
   font-size: 13px;
 }
 
-.party-icon-large {
+.party-icon-large,
+.meet-icon-large {
   font-size: 32px;
   margin-bottom: 6px;
   opacity: 0.6;
@@ -362,7 +370,7 @@
 }
 
 .participant-tile.local-participant {
-  border-color: rgba(124, 93, 250, 0.4);
+  border-color: rgba(99, 102, 241, 0.4);
 }
 
 .participant-video {
@@ -376,7 +384,7 @@
   transform: scaleX(-1);
 }
 
-/* Camera-Off Avatar */
+/* Camera-Off Party Avatar */
 .avatar-placeholder-container {
   display: flex;
   flex-direction: column;
@@ -388,18 +396,19 @@
   background: radial-gradient(circle, #1a1a2b 0%, #0d0d17 100%);
 }
 
-.party-avatar-circle {
+.party-avatar-circle,
+.google-meet-avatar {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #7c5dfa, #4831d4);
+  background: linear-gradient(135deg, #6366f1, #3b82f6);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 4px 15px rgba(124, 93, 250, 0.35);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
 }
 
 .camera-off-indicator {

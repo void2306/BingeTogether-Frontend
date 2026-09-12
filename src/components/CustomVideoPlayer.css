@@ -446,8 +446,8 @@
   transform: translate(-50%, -50%);
   z-index: 18;
   cursor: pointer;
-  /* Smooth linear sliding between 1s heartbeats when playing */
-  transition: left 1s linear;
+  /* Smooth linear sliding matching 500ms dead-reckoning ticker when playing */
+  transition: left 0.5s linear;
   pointer-events: auto;
 }
 

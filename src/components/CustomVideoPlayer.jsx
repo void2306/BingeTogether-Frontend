@@ -22,6 +22,7 @@ const CustomVideoPlayer = forwardRef(
       onSeeked,
       onPlay,
       onPause,
+      onProgressUpdate,
       className = "",
       poster,
     },
@@ -48,6 +49,21 @@ const CustomVideoPlayer = forwardRef(
     const [playbackRate, setPlaybackRate] = useState(1);
     const [isBuffering, setIsBuffering] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // Ticker to smoothly advance remote pins in real-time via dead-reckoning
+    const [, setTickerTime] = useState(Date.now());
+    useEffect(() => {
+      const hasPlayingMembers = Object.values(memberPositions || {}).some(
+        (m) => m && m.isPlaying
+      );
+      if (!hasPlayingMembers) return;
+
+      const ticker = setInterval(() => {
+        setTickerTime(Date.now());
+      }, 500);
+
+      return () => clearInterval(ticker);
+    }, [memberPositions]);
 
     // Controls visibility
     const [showControls, setShowControls] = useState(true);
@@ -359,6 +375,7 @@ const CustomVideoPlayer = forwardRef(
           customAudioRef.current.play().catch(() => {});
         }
         onPlay?.();
+        onProgressUpdate?.(video.currentTime, true);
       };
 
       const handlePause = () => {
@@ -368,10 +385,12 @@ const CustomVideoPlayer = forwardRef(
           customAudioRef.current.pause();
         }
         onPause?.();
+        onProgressUpdate?.(video.currentTime, false);
       };
 
       const handleTimeUpdate = () => {
         setCurrentTime(video.currentTime);
+        onProgressUpdate?.(video.currentTime, !video.paused);
         if (customAudioRef.current && customAudioRef.current.src && !video.paused) {
           const drift = Math.abs(customAudioRef.current.currentTime - video.currentTime);
           if (drift > 0.35) {
@@ -411,7 +430,9 @@ const CustomVideoPlayer = forwardRef(
         if (customAudioRef.current && customAudioRef.current.src) {
           customAudioRef.current.currentTime = video.currentTime;
         }
-        onSeeked?.(video.currentTime);
+        // Do NOT trigger onSeeked here: native seeked fires on initial load/metadata at 0:00,
+        // which inadvertently resets other participants' position.
+        // onSeeked is called explicitly when the user scrubs or seeks manually.
       };
 
       const handleVolumeChange = () => {
@@ -526,8 +547,10 @@ const CustomVideoPlayer = forwardRef(
       if (!video) return;
       const target = Math.max(0, Math.min(duration || 0, video.currentTime + delta));
       video.currentTime = target;
+      setCurrentTime(target);
       resetControlsTimeout();
       showToast(`${delta > 0 ? `+${delta}s` : `${delta}s`} (${formatTime(target)})`);
+      onSeeked?.(target);
     };
 
     const handleScrubberClick = (e) => {
@@ -541,7 +564,9 @@ const CustomVideoPlayer = forwardRef(
       const targetTime = percent * duration;
 
       video.currentTime = targetTime;
+      setCurrentTime(targetTime);
       resetControlsTimeout();
+      onSeeked?.(targetTime);
     };
 
     const handleScrubberMouseMove = (e) => {
@@ -1224,14 +1249,26 @@ const CustomVideoPlayer = forwardRef(
             {/* 👥 2. REAL-TIME REMOTE MEMBER POSITION PINS */}
             {duration > 0 &&
               Object.values(memberPositions || {}).map((member) => {
+                if (!member) return null;
+
+                // Dead-reckoning: advance member's position in real time if they are playing
+                let effectiveTime = Number(member.currentTime) || 0;
+                if (member.isPlaying && member.lastUpdated) {
+                  const elapsedSeconds = (Date.now() - member.lastUpdated) / 1000;
+                  effectiveTime = Math.min(
+                    duration,
+                    effectiveTime + Math.min(elapsedSeconds, 8)
+                  );
+                }
+
                 const percent = Math.max(
                   0,
-                  Math.min(100, (member.currentTime / duration) * 100)
+                  Math.min(100, (effectiveTime / duration) * 100)
                 );
 
                 return (
                   <div
-                    key={member.key || member.sessionId || member.userId}
+                    key={member.key || member.sessionId || member.userId || member.username}
                     className={`timeline-member-pin ${
                       member.isPlaying ? "is-playing" : "is-paused"
                     }`}
@@ -1242,13 +1279,13 @@ const CustomVideoPlayer = forwardRef(
                     onClick={(e) => {
                       e.stopPropagation(); // Avoid triggering standard scrub
                       if (videoRef.current) {
-                        videoRef.current.currentTime = member.currentTime;
-                        setCurrentTime(member.currentTime);
+                        videoRef.current.currentTime = effectiveTime;
+                        setCurrentTime(effectiveTime);
                       }
-                      onSeeked?.(member.currentTime);
+                      onSeeked?.(effectiveTime);
                       showToast(
                         `Jumped to ${member.username}'s position (${formatTime(
-                          member.currentTime
+                          effectiveTime
                         )})`
                       );
                     }}
@@ -1263,7 +1300,7 @@ const CustomVideoPlayer = forwardRef(
                     <div className="pin-tooltip">
                       <span className="pin-name">{member.username}</span>
                       <span className="pin-time">
-                        {formatTime(member.currentTime)}
+                        {formatTime(effectiveTime)}
                       </span>
                       <span className="pin-status">
                         {member.isPlaying ? "▶ Playing" : "⏸ Paused"}

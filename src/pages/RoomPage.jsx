@@ -18,7 +18,8 @@ const RTC_CONFIG = {
 /**
  * Participant Video Tile Subcomponent
  * Displays live video when camera is ON, or an animated Avatar placeholder when camera is OFF.
- * Remote audio plays seamlessly without echoes.
+ * Video element is muted={true} so browsers ALWAYS allow instant autoplay without blocking!
+ * Remote audio is played through a dedicated <audio> element.
  */
 function ParticipantVideoTile({
   stream,
@@ -31,22 +32,31 @@ function ParticipantVideoTile({
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
+  // Play video track
   useEffect(() => {
-    if (videoRef.current && stream && isCameraOn) {
-      if (videoRef.current.srcObject !== stream) {
-        videoRef.current.srcObject = stream;
+    const video = videoRef.current;
+    if (video && stream && isCameraOn) {
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
       }
+      video.play?.().catch((e) => {
+        console.warn("[VideoTile] Video play warning:", e);
+      });
     }
   }, [stream, isCameraOn]);
 
+  // Play microphone audio for remote participant (works whether camera is ON or OFF)
   useEffect(() => {
-    // When camera is off for a remote user, their mic audio still plays via an audio element
-    if (!isLocal && !isCameraOn && audioRef.current && stream) {
-      if (audioRef.current.srcObject !== stream) {
-        audioRef.current.srcObject = stream;
+    const audio = audioRef.current;
+    if (!isLocal && audio && stream) {
+      if (audio.srcObject !== stream) {
+        audio.srcObject = stream;
       }
+      audio.play?.().catch((e) => {
+        console.warn("[VideoTile] Audio autoplay warning:", e);
+      });
     }
-  }, [stream, isCameraOn, isLocal]);
+  }, [stream, isLocal]);
 
   return (
     <div
@@ -60,7 +70,7 @@ function ParticipantVideoTile({
           ref={videoRef}
           autoPlay
           playsInline
-          muted={isLocal} // MUST be muted for local to prevent acoustic feedback loop!
+          muted={true} // ALWAYS muted so browsers (Chrome/Safari/Edge) NEVER block autoplay!
           className={`participant-video ${isLocal ? "mirrored" : ""}`}
         />
       ) : (
@@ -73,8 +83,8 @@ function ParticipantVideoTile({
         </div>
       )}
 
-      {/* Hidden audio element for remote participants when their camera is off but mic is on */}
-      {!isLocal && !isCameraOn && (
+      {/* Remote audio element: Always mounted for remote users so sound streams continuously */}
+      {!isLocal && (
         <audio ref={audioRef} autoPlay playsInline />
       )}
 
@@ -121,7 +131,7 @@ function RoomPage() {
     `sess_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`
   );
 
-  // 🤖 BingeBot State & Controls
+  // BingeBot State & Controls
   const [activeTab, setActiveTab] = useState("chat");
   const [botMessages, setBotMessages] = useState([
     {
@@ -135,7 +145,7 @@ function RoomPage() {
   const [botInput, setBotInput] = useState("");
   const [isBotLoading, setIsBotLoading] = useState(false);
 
-  // 📹 Independent Media States
+  // Independent Media States
   const [isInCall, setIsInCall] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -144,14 +154,15 @@ function RoomPage() {
   const isInCallRef = useRef(false);
   const isCameraOnRef = useRef(false);
   const isMutedRef = useRef(false);
+  const membersRef = useRef([]);
 
   useEffect(() => { isInCallRef.current = isInCall; }, [isInCall]);
   useEffect(() => { isCameraOnRef.current = isCameraOn; }, [isCameraOn]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { membersRef.current = members; }, [members]);
 
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({}); // { [peerId]: MediaStream }
-  // Tracks participant camera/mic state: { [peerId]: { isCameraOn: boolean, isMuted: boolean, name: string } }
   const [peerMediaStates, setPeerMediaStates] = useState({});
 
   const peerConnectionsRef = useRef({}); // { [peerId]: RTCPeerConnection }
@@ -212,10 +223,28 @@ function RoomPage() {
     [roomCode, currentUsername, currentUserId]
   );
 
+  // Live tracking ref from CustomVideoPlayer for high-frequency sub-second accuracy
+  const localPlaybackRef = useRef({ currentTime: 0, isPlaying: false });
+
+  const handleProgressUpdate = useCallback((time, playing) => {
+    localPlaybackRef.current.currentTime = time;
+    localPlaybackRef.current.isPlaying = playing;
+  }, []);
+
   // Helper to extract current playback time and playing state
   const getCurrentPlaybackState = useCallback(() => {
     let currSeconds = 0;
     let isPlaying = false;
+
+    // 1. High-frequency live tracking ref
+    if (localPlaybackRef.current && localPlaybackRef.current.currentTime > 0) {
+      return {
+        currSeconds: localPlaybackRef.current.currentTime,
+        isPlaying: localPlaybackRef.current.isPlaying,
+      };
+    }
+
+    // 2. Direct player ref handle
     if (playerRef.current) {
       if (typeof playerRef.current.getCurrentTime === "function") {
         currSeconds = playerRef.current.getCurrentTime() || 0;
@@ -227,6 +256,8 @@ function RoomPage() {
         isPlaying = internal ? !internal.paused : false;
       }
     }
+
+    // 3. Fallback to DOM element
     if (!currSeconds) {
       const html5Video = document.getElementById("room-video-player");
       if (html5Video && html5Video.currentTime) {
@@ -260,7 +291,7 @@ function RoomPage() {
     [roomCode, currentUsername, currentUserId, getCurrentPlaybackState]
   );
 
-  // Periodic heartbeat emission (every 1 second for silky timeline movement)
+  // Periodic heartbeat emission
   useEffect(() => {
     const interval = setInterval(() => {
       broadcastHeartbeat();
@@ -291,13 +322,12 @@ function RoomPage() {
   }, []);
 
   // -------------------------------------------------------------
-  // 🎙️ WebRTC Engine
+  // WebRTC Engine
   // -------------------------------------------------------------
 
   /**
    * Creates or retrieves an RTCPeerConnection for targetUserId.
-   * If the local user has no tracks yet (camera off, mic off), it attaches
-   * recvonly transceivers so Person B can receive Person A's video/audio immediately!
+   * Configures tracks or transceivers properly so sending/receiving works both ways.
    */
   const getOrCreatePeerConnection = useCallback(
     (targetUserId) => {
@@ -314,28 +344,36 @@ function RoomPage() {
         });
       }
 
-      // If no local tracks exist, ensure recvonly transceivers are ready to receive
-      const senders = pc.getSenders();
-      const hasAudio = senders.some((s) => s.track && s.track.kind === "audio");
-      const hasVideo = senders.some((s) => s.track && s.track.kind === "video");
+      // Ensure transceivers exist to receive audio and video
+      const transceivers = pc.getTransceivers();
+      const hasAudio = transceivers.some((t) => t.receiver?.track?.kind === "audio" || t.sender?.track?.kind === "audio");
+      const hasVideo = transceivers.some((t) => t.receiver?.track?.kind === "video" || t.sender?.track?.kind === "video");
 
       if (!hasAudio) {
-        pc.addTransceiver("audio", { direction: "recvonly" });
+        pc.addTransceiver("audio", { direction: "sendrecv" });
       }
       if (!hasVideo) {
-        pc.addTransceiver("video", { direction: "recvonly" });
+        pc.addTransceiver("video", { direction: "sendrecv" });
       }
 
-      // Receive incoming tracks (audio & video)
+      // Capture incoming tracks
       pc.ontrack = (event) => {
+        console.log(`[WebRTC] Received remote track (${event.track.kind}) from user: ${targetUserId}`);
         const [stream] = event.streams;
         if (stream) {
-          setRemoteStreams((prev) => ({ ...prev, [targetUserId]: stream }));
+          // Re-create MediaStream with all tracks to guarantee React state updates on new tracks
+          setRemoteStreams((prev) => ({
+            ...prev,
+            [targetUserId]: new MediaStream(stream.getTracks()),
+          }));
         } else if (event.track) {
           setRemoteStreams((prev) => {
             const current = prev[targetUserId] || new MediaStream();
             current.addTrack(event.track);
-            return { ...prev, [targetUserId]: current };
+            return {
+              ...prev,
+              [targetUserId]: new MediaStream(current.getTracks()),
+            };
           });
         }
       };
@@ -360,7 +398,7 @@ function RoomPage() {
     [roomCode, currentUserId]
   );
 
-  // Drain any queued ICE candidates after remote description is set
+  // Drain queued ICE candidates
   const drainIceCandidates = async (peerId, pc) => {
     const queue = pendingCandidatesRef.current[peerId] || [];
     for (const cand of queue) {
@@ -375,8 +413,23 @@ function RoomPage() {
 
   // Call a peer: creates Offer and sends via STOMP
   const callPeer = async (targetUserId) => {
+    if (!targetUserId || targetUserId === currentUserId) return;
     try {
+      console.log(`[WebRTC] Initiating call/offer to peer: ${targetUserId}`);
       const pc = getOrCreatePeerConnection(targetUserId);
+
+      // Make sure transceivers are set to sendrecv if we have local tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === track.kind || (!s.track && s.kind === track.kind));
+          if (sender) {
+            sender.replaceTrack(track);
+          } else {
+            pc.addTrack(track, localStreamRef.current);
+          }
+        });
+      }
+
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
@@ -396,6 +449,35 @@ function RoomPage() {
     } catch (err) {
       console.error(`Failed to call peer ${targetUserId}:`, err);
     }
+  };
+
+  // Call all other members in the room
+  const callAllMembers = () => {
+    const peerSet = new Set();
+
+    // 1. From membersRef (REST API)
+    membersRef.current.forEach((m) => {
+      let mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
+      if (typeof mId === "object" && mId !== null) mId = mId.id || mId.userId;
+      mId = Number(mId);
+      if (mId && mId !== currentUserId) peerSet.add(mId);
+    });
+
+    // 2. From real-time heartbeats (memberPositions)
+    Object.values(memberPositions).forEach((pos) => {
+      const uId = Number(pos.userId);
+      if (uId && uId !== currentUserId) peerSet.add(uId);
+    });
+
+    // 3. From known media states
+    Object.keys(peerMediaStates).forEach((k) => {
+      const uId = Number(k);
+      if (uId && uId !== currentUserId) peerSet.add(uId);
+    });
+
+    peerSet.forEach((targetId) => {
+      callPeer(targetId);
+    });
   };
 
   /**
@@ -425,6 +507,9 @@ function RoomPage() {
       isMutedRef.current = false;
 
       broadcastMediaState(false, false);
+
+      // Call everyone currently in room
+      callAllMembers();
 
       if (stompClientRef.current?.connected) {
         stompClientRef.current.publish({
@@ -477,7 +562,7 @@ function RoomPage() {
 
   /**
    * Independent Camera Toggle:
-   * Turns camera ON or OFF independently without affecting microphone or resetting STOMP.
+   * Turns camera ON or OFF independently.
    */
   const toggleCamera = async () => {
     if (!isInCallRef.current) {
@@ -494,9 +579,9 @@ function RoomPage() {
           localStreamRef.current.removeTrack(t);
         });
 
-        // Replace track in peer connections with null
+        // Inform senders
         Object.values(peerConnectionsRef.current).forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video");
           if (sender) {
             sender.replaceTrack(null).catch(() => {});
           }
@@ -521,20 +606,12 @@ function RoomPage() {
         localStreamRef.current.addTrack(newVideoTrack);
         setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
 
-        // Add or replace video track in all active peer connections
-        for (const [peerId, pc] of Object.entries(peerConnectionsRef.current)) {
-          const videoSender = pc.getSenders().find((s) => s.track?.kind === "video" || (!s.track && s.kind === "video"));
-          if (videoSender) {
-            await videoSender.replaceTrack(newVideoTrack);
-          } else {
-            pc.addTrack(newVideoTrack, localStreamRef.current);
-          }
-          await callPeer(Number(peerId));
-        }
-
         setIsCameraOn(true);
         isCameraOnRef.current = true;
         broadcastMediaState(true, isMutedRef.current);
+
+        // Update all peers with new video track
+        callAllMembers();
       } catch (err) {
         console.error("Failed to access camera:", err);
         alert("Camera permission denied or camera unavailable.");
@@ -566,12 +643,10 @@ function RoomPage() {
           const micTrack = micStream.getAudioTracks()[0];
           localStreamRef.current.addTrack(micTrack);
           setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
-          Object.values(peerConnectionsRef.current).forEach((pc) => {
-            pc.addTrack(micTrack, localStreamRef.current);
-          });
           setIsMuted(false);
           isMutedRef.current = false;
           broadcastMediaState(isCameraOnRef.current, false);
+          callAllMembers();
         }).catch((err) => {
           console.error("Failed to capture mic:", err);
         });
@@ -973,8 +1048,6 @@ function RoomPage() {
 
   // -------------------------------------------------------------
   // STOMP WebSocket & WebRTC Signals Listener
-  // CRITICAL: Effect ONLY depends on roomCode, currentUserId, currentUsername.
-  // It does NOT depend on camera/mic states, so it NEVER tears down on toggle!
   // -------------------------------------------------------------
   useEffect(() => {
     const client = new Client({
@@ -999,7 +1072,7 @@ function RoomPage() {
         // 1. Media Player Playback Sync & Meeting Presence Listener
         client.subscribe(`/topic/room/${roomCode}/stream`, (message) => {
           const payload = JSON.parse(message.body);
-          const packetSender = payload.sender || payload.username || payload.nickname;
+          const packetSender = (payload.sender || payload.username || payload.nickname || "").trim();
           const packetUserId = Number(payload.userId);
           const packetSessionId = payload.sessionId;
 
@@ -1007,32 +1080,43 @@ function RoomPage() {
             saveStoredRoomName(packetUserId, packetSender);
           }
 
-          // Ignore echoes from this exact tab/session
+          // 🛑 1. CRITICAL: Never add ourselves to remote memberPositions!
+          if (
+            packetSender &&
+            currentUsername &&
+            packetSender.toLowerCase() === currentUsername.trim().toLowerCase()
+          ) {
+            return;
+          }
+
+          // Ignore echoes from this exact tab/session or user id
           if (packetSessionId && packetSessionId === clientSessionIdRef.current) {
             return;
           }
-          if (!packetSessionId && packetUserId === currentUserId) {
+          if (packetUserId && currentUserId && packetUserId === currentUserId) {
             return;
           }
 
-          // Key for tracking member positions (enables multi-tab and multi-user testing)
-          const memberKey = packetSessionId
-            ? `${packetUserId}_${packetSessionId}`
-            : String(packetUserId);
+          // 🔑 2. Unique memberKey: Key by sender username so Akshat and Vibhor NEVER collide or share a key!
+          const memberKey = packetSender
+            ? packetSender.toLowerCase()
+            : (packetUserId ? String(packetUserId) : (packetSessionId || "remote_user"));
 
-          // Simultaneous Media Playback Sync & Real-Time Position Markers
+          const memberColor = getMemberColor(packetUserId || packetSender || memberKey);
+
           if (payload.action === "POSITION_HEARTBEAT") {
+            const reportedTime = Number(payload.currentTime) || 0;
             setMemberPositions((prev) => ({
               ...prev,
               [memberKey]: {
                 key: memberKey,
                 userId: packetUserId,
                 sessionId: packetSessionId,
-                username: packetSender || `User #${packetUserId}`,
-                currentTime: Number(payload.currentTime) || 0,
+                username: packetSender || `User #${packetUserId || ""}`,
+                currentTime: reportedTime,
                 isPlaying: !!payload.isPlaying,
                 lastUpdated: Date.now(),
-                color: getMemberColor(packetUserId || packetSessionId),
+                color: memberColor,
               },
             }));
           } else if (payload.action === "PLAY") {
@@ -1040,15 +1124,17 @@ function RoomPage() {
             playerRef.current?.play?.();
             setTimeout(() => { ignoreNextSyncRef.current = false; }, 600);
             setMemberPositions((prev) => {
-              const existing = prev[memberKey];
-              if (!existing) return prev;
+              const existing = prev[memberKey] || {
+                key: memberKey,
+                userId: packetUserId,
+                sessionId: packetSessionId,
+                username: packetSender || `User #${packetUserId || ""}`,
+                currentTime: payload.currentTime !== undefined ? Number(payload.currentTime) : 0,
+                color: memberColor,
+              };
               return {
                 ...prev,
-                [memberKey]: {
-                  ...existing,
-                  isPlaying: true,
-                  lastUpdated: Date.now(),
-                },
+                [memberKey]: { ...existing, isPlaying: true, lastUpdated: Date.now() },
               };
             });
           } else if (payload.action === "PAUSE") {
@@ -1056,15 +1142,17 @@ function RoomPage() {
             playerRef.current?.pause?.();
             setTimeout(() => { ignoreNextSyncRef.current = false; }, 600);
             setMemberPositions((prev) => {
-              const existing = prev[memberKey];
-              if (!existing) return prev;
+              const existing = prev[memberKey] || {
+                key: memberKey,
+                userId: packetUserId,
+                sessionId: packetSessionId,
+                username: packetSender || `User #${packetUserId || ""}`,
+                currentTime: payload.currentTime !== undefined ? Number(payload.currentTime) : 0,
+                color: memberColor,
+              };
               return {
                 ...prev,
-                [memberKey]: {
-                  ...existing,
-                  isPlaying: false,
-                  lastUpdated: Date.now(),
-                },
+                [memberKey]: { ...existing, isPlaying: false, lastUpdated: Date.now() },
               };
             });
           } else if (payload.action === "SEEK_REQUEST" && payload.targetTime !== undefined) {
@@ -1074,25 +1162,27 @@ function RoomPage() {
               targetTime: tgt,
             });
             setMemberPositions((prev) => {
-              const existing = prev[memberKey];
-              if (!existing) return prev;
+              const existing = prev[memberKey] || {
+                key: memberKey,
+                userId: packetUserId,
+                sessionId: packetSessionId,
+                username: packetSender || `User #${packetUserId || ""}`,
+                isPlaying: false,
+                color: memberColor,
+              };
               return {
                 ...prev,
-                [memberKey]: {
-                  ...existing,
-                  currentTime: tgt,
-                  lastUpdated: Date.now(),
-                },
+                [memberKey]: { ...existing, currentTime: tgt, lastUpdated: Date.now() },
               };
             });
           }
 
           // Meeting Presence & Media State Handling
           if (payload.action === "MEETING_JOINED" || payload.action === "ANNOUNCE") {
-            // New joiner announced: immediately broadcast our current position!
             broadcastHeartbeat();
 
-            if (isInCallRef.current) {
+            // If we are sharing camera or mic, call the new participant immediately
+            if (isInCallRef.current || isCameraOnRef.current) {
               callPeer(packetUserId);
               broadcastMediaState(isCameraOnRef.current, isMutedRef.current);
             }
@@ -1105,6 +1195,11 @@ function RoomPage() {
                 name: packetSender,
               },
             }));
+
+            // If peer turned on camera or mic and no connection exists yet, connect!
+            if (payload.isCameraOn && !peerConnectionsRef.current[packetUserId]) {
+              callPeer(packetUserId);
+            }
           } else if (payload.action === "MEETING_LEFT") {
             if (peerConnectionsRef.current[packetUserId]) {
               peerConnectionsRef.current[packetUserId].close();
@@ -1123,8 +1218,12 @@ function RoomPage() {
             });
             setMemberPositions((prev) => {
               const updated = { ...prev };
+              const cleanSender = packetSender?.toLowerCase();
               for (const k of Object.keys(updated)) {
-                if (k === String(packetUserId) || k.startsWith(`${packetUserId}_`)) {
+                if (
+                  (cleanSender && k === cleanSender) ||
+                  (packetUserId && (k === String(packetUserId) || k.startsWith(`${packetUserId}_`)))
+                ) {
                   delete updated[k];
                 }
               }
@@ -1133,13 +1232,25 @@ function RoomPage() {
           }
         });
 
-        // 2. WebRTC Offer Receiver (Person B receives Person A's camera feed!)
+        // 2. WebRTC Offer Receiver (Person B receives Person A's camera & audio!)
         client.subscribe(`/topic/room/${roomCode}/webrtc/offer`, async (msg) => {
           const data = JSON.parse(msg.body);
           if (Number(data.targetId) !== currentUserId) return;
 
           try {
+            console.log(`[WebRTC] Received offer from: ${data.senderId}`);
             const pc = getOrCreatePeerConnection(data.senderId);
+
+            // Handle glare: if connection is not in stable state, rollback local description
+            if (pc.signalingState !== "stable") {
+              console.log("[WebRTC] Glare detected, rolling back to accept remote offer");
+              try {
+                await pc.setLocalDescription({ type: "rollback" });
+              } catch (e) {
+                console.warn("[WebRTC] Rollback warning:", e);
+              }
+            }
+
             await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
             await drainIceCandidates(data.senderId, pc);
 
@@ -1167,6 +1278,7 @@ function RoomPage() {
           const pc = peerConnectionsRef.current[data.senderId];
           if (pc) {
             try {
+              console.log(`[WebRTC] Received answer from: ${data.senderId}`);
               await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
               await drainIceCandidates(data.senderId, pc);
             } catch (err) {
@@ -1254,13 +1366,18 @@ function RoomPage() {
     return mUserId ? `User #${mUserId}` : `Member #${idx + 1}`;
   };
 
-  // Compile active participants for the video dock
   const allParticipantIds = Array.from(
     new Set([
       ...Object.keys(remoteStreams).map(Number),
       ...Object.keys(peerMediaStates).map(Number),
+      ...Object.values(memberPositions).map((p) => Number(p.userId)),
+      ...members.map((m) => {
+        let mId = m?.userId?.id || m?.userId || m?.id || m?.user?.id;
+        if (typeof mId === "object" && mId !== null) mId = mId.id || mId.userId;
+        return Number(mId);
+      }),
     ])
-  ).filter((id) => id !== currentUserId);
+  ).filter((id) => id && id !== currentUserId);
 
   return (
     <div className="room-container">
@@ -1341,7 +1458,7 @@ function RoomPage() {
       {/* MAIN WATCH PARTY LAYOUT */}
       <div className="room-content-layout">
         <div className="left-stage-column">
-          {/* 1. MEDIA VIDEO PLAYER (Plays concurrently with video call!) */}
+          {/* 1. MEDIA VIDEO PLAYER */}
           <div className="video-player-frame">
             {demoVideo || room?.movieLink ? (
               isYouTubeUrl(demoVideo || room?.movieLink) ? (
@@ -1368,6 +1485,7 @@ function RoomPage() {
                   onPlay={handleLocalPlay}
                   onPause={handleLocalPause}
                   onSeeked={(time) => handleLocalSeek(time)}
+                  onProgressUpdate={handleProgressUpdate}
                 />
               )
             ) : (
@@ -1417,12 +1535,12 @@ function RoomPage() {
                 <span className="party-cam-tag">Live</span>
               </div>
 
-              {/* Controls: Independent Mic, Camera, & Leave Call */}
+              {/* Controls: Independent Mic, Camera, & Disconnect */}
               <div className="party-controls-bar">
                 {!isInCall ? (
                   <div className="join-options-group">
                     <button className="party-btn primary-join" onClick={joinMeeting}>
-                      🎙️ Join Voice Only
+                      🎙️ Join Voice
                     </button>
                     <button className="party-btn camera-join" onClick={toggleCamera}>
                       🎥 Turn Camera On
@@ -1460,7 +1578,7 @@ function RoomPage() {
 
             {/* Participant Video / Avatar Grid */}
             <div className="party-tiles-grid">
-              {/* Local Participant Tile (Shown when in call) */}
+              {/* Local Participant Tile */}
               {isInCall && (
                 <ParticipantVideoTile
                   stream={localStream}
@@ -1499,7 +1617,7 @@ function RoomPage() {
               {!isInCall && allParticipantIds.length === 0 && (
                 <div className="empty-party-placeholder">
                   <span className="party-icon-large">📹</span>
-                  <p>Turn on your camera or mic to start chatting with your watch party!</p>
+                  <p>Turn on your camera or mic to chat live with your watch party!</p>
                 </div>
               )}
             </div>
