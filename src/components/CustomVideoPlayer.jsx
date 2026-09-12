@@ -15,6 +15,7 @@ const CustomVideoPlayer = forwardRef(
       src,
       title = "Live Stream",
       autoPlay = true,
+      memberPositions = {},
       onSeeked,
       onPlay,
       onPause,
@@ -1173,6 +1174,59 @@ const CustomVideoPlayer = forwardRef(
             >
               <div className="timeline-thumb-glow" />
             </div>
+
+            {/* 👥 REAL-TIME REMOTE MEMBER POSITION PINS */}
+            {duration > 0 &&
+              Object.values(memberPositions || {}).map((member) => {
+                const percent = Math.max(
+                  0,
+                  Math.min(100, (member.currentTime / duration) * 100)
+                );
+
+                return (
+                  <div
+                    key={member.userId}
+                    className={`timeline-member-pin ${
+                      member.isPlaying ? "is-playing" : "is-paused"
+                    }`}
+                    style={{
+                      left: `${percent}%`,
+                      "--pin-color": member.color || "#6366f1",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Avoid triggering standard scrub
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = member.currentTime;
+                        setCurrentTime(member.currentTime);
+                      }
+                      onSeeked?.(member.currentTime);
+                      showToast(
+                        `Jumped to ${member.username}'s position (${formatTime(
+                          member.currentTime
+                        )})`
+                      );
+                    }}
+                    title={`Click to jump to ${member.username}`}
+                  >
+                    {/* Glowing Pin Head with User's Initial */}
+                    <div className="pin-avatar">
+                      {(member.username || "U").charAt(0).toUpperCase()}
+                    </div>
+
+                    {/* Hover / Active Tooltip */}
+                    <div className="pin-tooltip">
+                      <span className="pin-name">{member.username}</span>
+                      <span className="pin-time">
+                        {formatTime(member.currentTime)}
+                      </span>
+                      <span className="pin-status">
+                        {member.isPlaying ? "▶ Playing" : "⏸ Paused"}
+                      </span>
+                      <span className="pin-hint">Click to Sync</span>
+                    </div>
+                  </div>
+                );
+              })}
 
             {/* Hover Tooltip */}
             {isHoveringScrubber && hoverTime !== null && (

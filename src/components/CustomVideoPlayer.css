@@ -429,10 +429,146 @@
   border-radius: 9999px;
   cursor: pointer;
   transition: height 0.15s ease;
+  overflow: visible !important; /* Crucial for avatar pins & glowing rings */
 }
 
 .timeline-scrubber-track:hover {
   height: 9px;
+}
+
+/* ==========================================================================
+   👥 REAL-TIME MULTIPLAYER SEEK BAR POSITION MARKERS
+   ========================================================================== */
+
+.timeline-member-pin {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 18;
+  cursor: pointer;
+  /* Smooth linear sliding between 1.5s heartbeats when playing */
+  transition: left 1.5s linear;
+  pointer-events: auto;
+}
+
+.timeline-member-pin.is-paused {
+  transition: left 0.2s ease;
+}
+
+/* Avatar Circle on Seekbar */
+.pin-avatar {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--pin-color, #6366f1);
+  border: 2px solid #09090f;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px var(--pin-color, #6366f1), 0 2px 6px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.timeline-member-pin:hover .pin-avatar {
+  transform: scale(1.35);
+  box-shadow: 0 0 18px var(--pin-color, #6366f1), 0 4px 10px rgba(0, 0, 0, 0.8);
+}
+
+/* Pulsing ring around playing members */
+.timeline-member-pin.is-playing .pin-avatar::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pin-color, #6366f1);
+  animation: markerPulse 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes markerPulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+/* Hover Tooltip */
+.pin-tooltip {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: rgba(14, 14, 24, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--pin-color, #6366f1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 12px rgba(99, 102, 241, 0.15);
+  z-index: 30;
+}
+
+.pin-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--pin-color, #6366f1) transparent transparent transparent;
+}
+
+.timeline-member-pin:hover .pin-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pin-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.pin-time {
+  font-size: 10px;
+  color: var(--pin-color, #a5b4fc);
+  font-weight: 600;
+}
+
+.pin-status {
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+.pin-hint {
+  font-size: 8.5px;
+  color: #f472b6;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
 }
 
 .timeline-buffered-bar {

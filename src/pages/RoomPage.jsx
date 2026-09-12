@@ -5,6 +5,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { API_BASE_URL, WS_BASE_URL } from "../config";
 import CustomVideoPlayer from "../components/CustomVideoPlayer";
+import { getMemberColor } from "../utils/avatarColors";
 
 // Free Google STUN Servers
 const RTC_CONFIG = {
@@ -115,6 +116,7 @@ function RoomPage() {
 
   const [pendingSync, setPendingSync] = useState(null);
   const [demoVideo, setDemoVideo] = useState(null);
+  const [memberPositions, setMemberPositions] = useState({});
 
   // 🤖 BingeBot State & Controls
   const [activeTab, setActiveTab] = useState("chat");
@@ -197,6 +199,76 @@ function RoomPage() {
     },
     [roomCode, currentUsername, currentUserId]
   );
+
+  // Helper to extract current playback time and playing state
+  const getCurrentPlaybackState = useCallback(() => {
+    let currSeconds = 0;
+    let isPlaying = false;
+    if (playerRef.current) {
+      currSeconds = playerRef.current.getCurrentTime?.() || 0;
+      const internal = playerRef.current.getInternalPlayer?.();
+      isPlaying = internal ? !internal.paused : false;
+    } else {
+      const html5Video = document.getElementById("room-video-player");
+      if (html5Video) {
+        currSeconds = html5Video.currentTime || 0;
+        isPlaying = !html5Video.paused;
+      }
+    }
+    return { currSeconds, isPlaying };
+  }, []);
+
+  // Broadcasts current position heartbeat over STOMP
+  const broadcastHeartbeat = useCallback(
+    (overrideSeconds = null, overridePlaying = null) => {
+      if (!stompClientRef.current?.connected) return;
+      const { currSeconds, isPlaying } = getCurrentPlaybackState();
+      const timeToSend = typeof overrideSeconds === "number" ? overrideSeconds : currSeconds;
+      const playToSend = typeof overridePlaying === "boolean" ? overridePlaying : isPlaying;
+
+      stompClientRef.current.publish({
+        destination: `/app/room/${roomCode}/sync`,
+        body: JSON.stringify({
+          sender: currentUsername,
+          userId: currentUserId,
+          action: "POSITION_HEARTBEAT",
+          currentTime: timeToSend,
+          isPlaying: playToSend,
+        }),
+      });
+    },
+    [roomCode, currentUsername, currentUserId, getCurrentPlaybackState]
+  );
+
+  // Periodic heartbeat emission (every 1.5 seconds while connected)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      broadcastHeartbeat();
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [broadcastHeartbeat]);
+
+  // Stale position pruning: prune users who haven't sent a heartbeat for > 8s
+  useEffect(() => {
+    const pruneInterval = setInterval(() => {
+      const now = Date.now();
+      setMemberPositions((prev) => {
+        let hasStale = false;
+        const next = {};
+        for (const [id, pos] of Object.entries(prev)) {
+          if (now - pos.lastUpdated <= 8000) {
+            next[id] = pos;
+          } else {
+            hasStale = true;
+          }
+        }
+        return hasStale ? next : prev;
+      });
+    }, 3000);
+
+    return () => clearInterval(pruneInterval);
+  }, []);
 
   // -------------------------------------------------------------
   // 🎙️ Google Meet-Style WebRTC Engine
@@ -738,6 +810,7 @@ function RoomPage() {
         action: "PLAY",
       }),
     });
+    broadcastHeartbeat(null, true);
   };
 
   const handleLocalPause = () => {
@@ -750,6 +823,7 @@ function RoomPage() {
         action: "PAUSE",
       }),
     });
+    broadcastHeartbeat(null, false);
   };
 
   const handleLocalSeek = (seconds) => {
@@ -764,6 +838,7 @@ function RoomPage() {
           targetTime: seconds,
         }),
       });
+      broadcastHeartbeat(seconds, null);
     }
   };
 
@@ -878,17 +953,66 @@ function RoomPage() {
 
           if (packetUserId === currentUserId) return;
 
-          // Simultaneous Media Playback Sync
-          if (payload.action === "PLAY") {
+          // Simultaneous Media Playback Sync & Real-Time Position Markers
+          if (payload.action === "POSITION_HEARTBEAT") {
+            setMemberPositions((prev) => ({
+              ...prev,
+              [packetUserId]: {
+                userId: packetUserId,
+                username: packetSender || `User #${packetUserId}`,
+                currentTime: Number(payload.currentTime) || 0,
+                isPlaying: !!payload.isPlaying,
+                lastUpdated: Date.now(),
+                color: getMemberColor(packetUserId),
+              },
+            }));
+          } else if (payload.action === "PLAY") {
             ignoreNextSyncRef.current = true;
             playerRef.current?.play?.();
+            setMemberPositions((prev) => {
+              const existing = prev[packetUserId];
+              if (!existing) return prev;
+              return {
+                ...prev,
+                [packetUserId]: {
+                  ...existing,
+                  isPlaying: true,
+                  lastUpdated: Date.now(),
+                },
+              };
+            });
           } else if (payload.action === "PAUSE") {
             ignoreNextSyncRef.current = true;
             playerRef.current?.pause?.();
+            setMemberPositions((prev) => {
+              const existing = prev[packetUserId];
+              if (!existing) return prev;
+              return {
+                ...prev,
+                [packetUserId]: {
+                  ...existing,
+                  isPlaying: false,
+                  lastUpdated: Date.now(),
+                },
+              };
+            });
           } else if (payload.action === "SEEK_REQUEST" && payload.targetTime !== undefined) {
+            const tgt = Number(payload.targetTime);
             setPendingSync({
               sender: packetSender || "Someone",
-              targetTime: Number(payload.targetTime),
+              targetTime: tgt,
+            });
+            setMemberPositions((prev) => {
+              const existing = prev[packetUserId];
+              if (!existing) return prev;
+              return {
+                ...prev,
+                [packetUserId]: {
+                  ...existing,
+                  currentTime: tgt,
+                  lastUpdated: Date.now(),
+                },
+              };
             });
           }
 
@@ -921,6 +1045,12 @@ function RoomPage() {
               return updated;
             });
             setPeerMediaStates((prev) => {
+              const updated = { ...prev };
+              delete updated[packetUserId];
+              return updated;
+            });
+            setMemberPositions((prev) => {
+              if (!prev[packetUserId]) return prev;
               const updated = { ...prev };
               delete updated[packetUserId];
               return updated;
@@ -1158,6 +1288,7 @@ function RoomPage() {
                   ref={playerRef}
                   src={demoVideo || room.movieLink}
                   title={room?.roomName || "Watch Party Stream"}
+                  memberPositions={memberPositions}
                   onPlay={handleLocalPlay}
                   onPause={handleLocalPause}
                   onSeeked={(time) => handleLocalSeek(time)}
